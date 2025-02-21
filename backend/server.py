@@ -1,59 +1,40 @@
 from flask import Flask, request, jsonify
-from services.exchange_rates import get_fiat_conversion
-from services.crypto_prices import get_crypto_conversion
+from services.crypto_prices import get_supported_cryptos, get_crypto_price
+from services.exchange_rates import get_available_currencies, get_fiat_conversion
 
 app = Flask(__name__)
 
-# List of common fiat currencies for accurate detection
-FIAT_CURRENCIES = {"USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "INR"}
+@app.route('/api/currencies', methods=['GET'])
+def get_all_currencies():
+    """Fetch both fiat and crypto currencies."""
+    print("🔍 Fetching fiat currencies...")
+    fiat_currencies = get_available_currencies()
+    print("Fiat Response:", fiat_currencies)
 
-@app.route('/convert', methods=['GET'])
-def convert_currency():
-    """Handles currency conversion requests for fiat and crypto currencies."""
-    
-    from_currency = request.args.get('from')
-    to_currency = request.args.get('to')
-    amount = request.args.get('amount', 1)
+    print("🔍 Fetching crypto currencies...")
+    crypto_currencies = get_supported_cryptos()
+    print("Crypto Response:", crypto_currencies)
 
-    # Debugging info to check incoming requests
-    print(f"🛠️ Debug - Received Request: from={from_currency}, to={to_currency}, amount={amount}")
+    if "error" in fiat_currencies or "error" in crypto_currencies:
+        print("❌ Currency API failed")
+        return jsonify({"error": "Failed to load currency data"}), 500
 
-    # Validate amount (ensure it's a number)
-    try:
-        amount = float(amount)
-        if amount <= 0:
-            return jsonify({"error": "Amount must be greater than zero"}), 400
-    except ValueError:
-        return jsonify({"error": "Invalid amount. Must be a number"}), 400
+    combined_currencies = {**fiat_currencies, **crypto_currencies}
+    print("✅ Combined Currencies Loaded")
 
-    # Validate input parameters
-    if not from_currency or not to_currency:
-        return jsonify({"error": "Missing required parameters"}), 400
+    return jsonify(combined_currencies)
 
-    # Determine conversion type
-    is_fiat_from = from_currency.upper() in FIAT_CURRENCIES
-    is_fiat_to = to_currency.upper() in FIAT_CURRENCIES
+@app.route('/api/crypto_price', methods=['GET'])
+def get_crypto_price_endpoint():
+    """Fetch the price of a specific cryptocurrency."""
+    crypto_id = request.args.get('crypto_id')
+    vs_currency = request.args.get('vs_currency', 'usd')
 
-    # **Fiat → Fiat Conversion**
-    if is_fiat_from and is_fiat_to:
-        print("🔍 Detected Fiat → Fiat conversion")
-        result = get_fiat_conversion(from_currency.upper(), to_currency.upper(), amount)
-        return jsonify({"converted_amount": result}) if result else jsonify({"error": "Invalid fiat conversion"}), 400
+    if not crypto_id:
+        return jsonify({"error": "Missing crypto_id parameter"}), 400
 
-    # **Fiat → Crypto Conversion**
-    elif is_fiat_from and not is_fiat_to:
-        print("🔍 Detected Fiat → Crypto conversion")
-        result = get_crypto_conversion(from_currency.lower(), to_currency.lower(), amount)
-        return jsonify({"converted_amount": result}) if result else jsonify({"error": "Invalid fiat to crypto conversion"}), 400
-
-    # **Crypto → Crypto Conversion**
-    elif not is_fiat_from and not is_fiat_to:
-        print("🔍 Detected Crypto → Crypto conversion")
-        result = get_crypto_conversion(from_currency.lower(), to_currency.lower(), amount)
-        return jsonify({"converted_amount": result}) if result else jsonify({"error": "Invalid crypto conversion"}), 400
-
-    print("⚠️ No valid conversion type detected")
-    return jsonify({"error": "Invalid conversion request"}), 400
+    result = get_crypto_price(crypto_id, vs_currency)
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True)
