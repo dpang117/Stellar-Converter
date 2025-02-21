@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../widgets/navigator.dart'; // ✅ Import BottomNavigationBarWidget
-import 'currency_list.dart'; // ✅ Import currency selection list
+import 'default_currency.dart';
+import '../widgets/navigator.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -9,10 +9,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String selectedCurrencyMode = "Crypto"; // Default to Crypto
+  String selectedCurrency = "Fiat"; // Default selection
   int _currentIndex = 0; // ✅ Keeps track of selected tab
-  List<String> addedFiatCurrencies = [];
-  List<String> addedCryptoCurrencies = [];
 
   /// **Handles navigation between tabs**
   void _onTabTapped(int index) {
@@ -21,42 +19,30 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// **Open Currency List Modal**
-  void _openCurrencyList() async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CurrencyListScreen(),
-    );
-
-    if (result != null) {
-      setState(() {
-        if (selectedCurrencyMode == "Fiat") {
-          addedFiatCurrencies.add(result);
-        } else {
-          addedCryptoCurrencies.add(result);
-        }
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: appBar(context),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
         children: [
-          searchField(),
-          FiatCryptoToggle(),
-          addCurrencyOrCoinButton(),
-          Expanded(child: currencyListView()), // ✅ Displays added currencies
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              searchField(),
+              FiatCryptoToggle(),
+              addCurrencyOrCoinButton(),
+            ],
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: BottomNavigationBarWidget(
+              onTap: _onTabTapped,
+              currentIndex: _currentIndex,
+            ),
+          ),
         ],
-      ),
-      bottomNavigationBar: BottomNavigationBarWidget(
-        onTap: _onTabTapped,
-        currentIndex: _currentIndex,
       ),
     );
   }
@@ -69,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(100),
         child: CupertinoSegmentedControl<String>(
           padding: EdgeInsets.all(6),
-          groupValue: selectedCurrencyMode,
+          groupValue: selectedCurrency,
           borderColor: Colors.grey.shade300,
           selectedColor: Colors.black,
           unselectedColor: Colors.white,
@@ -80,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           onValueChanged: (value) {
             setState(() {
-              selectedCurrencyMode = value;
+              selectedCurrency = value;
             });
           },
         ),
@@ -91,11 +77,13 @@ class _HomeScreenState extends State<HomeScreen> {
   /// **Dynamic "Add Currency / Add Coin" Button**
   Widget addCurrencyOrCoinButton() {
     String buttonText =
-        selectedCurrencyMode == "Fiat" ? "Add currency" : "Add coin";
+        selectedCurrency == "Fiat" ? "Add currency" : "Add coin";
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 10),
       child: ElevatedButton.icon(
-        onPressed: _openCurrencyList, // ✅ Opens the modal
+        onPressed: () {
+          print("$buttonText Clicked!");
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
@@ -113,66 +101,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// **Displays List of Added Currencies**
-  Widget currencyListView() {
-    List<String> displayedCurrencies = selectedCurrencyMode == "Fiat"
-        ? addedFiatCurrencies
-        : addedCryptoCurrencies;
-
-    return displayedCurrencies.isEmpty
-        ? Center(
-            child: Text("No ${selectedCurrencyMode.toLowerCase()}s added yet"))
-        : ListView.builder(
-            itemCount: displayedCurrencies.length,
-            itemBuilder: (context, index) {
-              return currencyCard(displayedCurrencies[index]);
-            },
-          );
-  }
-
-  /// **Card for a Currency**
-  Widget currencyCard(String currency) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.blue, // ✅ Same blue color as the UI
-          borderRadius: BorderRadius.circular(16),
-        ),
-        padding: EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              currency,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            Text(
-              "\$0.00", // Placeholder for price
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// **App Bar with Settings Icon**
   AppBar appBar(BuildContext context) {
     return AppBar(
       title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
       leading: IconButton(
-        icon: Icon(Icons.settings, size: 26, color: Colors.black),
+        icon: Icon(Icons.settings,
+            size: 26, color: Colors.black), // ✅ Settings Icon
         onPressed: () {
-          Navigator.pushNamed(context, "/settings");
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    DefaultCurrency()), // ✅ Navigate to DefaultCurrency screen
+          );
         },
       ),
       backgroundColor: Colors.transparent,
@@ -210,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: selectedCurrencyMode == text ? Colors.white : Colors.black,
+          color: selectedCurrency == text ? Colors.white : Colors.black,
         ),
       ),
     );
