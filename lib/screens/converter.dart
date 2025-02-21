@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'currency_list.dart'; // ✅ Import the currency list screen
+import 'package:flutter/services.dart'; // Import for vibration
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -15,31 +15,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   String inputAmount = ''; // Stores user input
   String convertedAmount = ''; // Stores the result after conversion
 
-  /// **Show Bottom Sheet for Currency Selection**
-  Future<void> _selectCurrency(bool isSelectingFrom) async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return CurrencyListScreen(); // ✅ Currency selection list
-      },
-    );
-
-    if (selected != null) {
-      setState(() {
-        if (isSelectingFrom) {
-          selectedCurrencyFrom = selected;
-        } else {
-          selectedCurrencyTo = selected;
-        }
-        convertedAmount = ''; // Clear result when a new currency is selected
-      });
-    }
-  }
-
-  /// **Handles number input from numpad**
+  /// **Handles number input from numpad with vibration feedback**
   void onNumberPressed(String number) {
+    HapticFeedback.lightImpact(); // ✅ Short vibration for feedback
     setState(() {
       if (number == '.' && inputAmount.contains('.'))
         return; // Prevent multiple decimals
@@ -47,8 +25,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     });
   }
 
-  /// **Handles backspace on numpad**
+  /// **Handles backspace on numpad with vibration feedback**
   void onBackspacePressed() {
+    HapticFeedback.lightImpact(); // ✅ Short vibration for feedback
     setState(() {
       if (inputAmount.isNotEmpty) {
         inputAmount = inputAmount.substring(0, inputAmount.length - 1);
@@ -83,160 +62,183 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     }
   }
 
+  /// **Handles screen transition when clicking back button**
+  void _goBack() {
+    Navigator.of(context).pop(); // Default pop transition (slides in from left)
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Icon(Icons.arrow_back),
+        leading: GestureDetector(
+          onTap: () {
+            Navigator.of(context).pop(); // Triggers back transition
+          },
+          child: Icon(Icons.arrow_back),
+        ),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title
-            Text(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title (UNCHANGED)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
               'Converter',
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 20),
+          ),
 
-            // **First Currency Row (FROM) - Editable**
-            GestureDetector(
-              onTap: () => _selectCurrency(true),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      selectedCurrencyFrom, // Shows selected currency
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          SizedBox(height: 20),
+
+          // **Fields Moved Down**
+          Padding(
+            padding: const EdgeInsets.only(top: 40.0, left: 16.0, right: 16.0),
+            child: Column(
+              children: [
+                // **First Currency Row (FROM) - Editable**
+                GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    Text(
-                      inputAmount.isEmpty
-                          ? "0"
-                          : inputAmount, // Shows user input
-                      style: TextStyle(fontSize: 18),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          selectedCurrencyFrom,
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          inputAmount.isEmpty ? "0" : inputAmount,
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 10),
-
-            // Arrow icon (points down)
-            Center(
-              child: Icon(
-                Icons.arrow_downward,
-                color: Colors.blue,
-              ),
-            ),
-
-            SizedBox(height: 10),
-
-            // **Second Currency Row (TO) - Non-editable**
-            GestureDetector(
-              onTap: () => _selectCurrency(false),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      selectedCurrencyTo, // Shows selected currency
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      convertedAmount, // ✅ **Now only updates after conversion**
-                      style: TextStyle(
-                          fontSize: 18,
-                          color: convertedAmount.isEmpty
-                              ? Colors.black54
-                              : Colors.black), // Default to dimmed if empty
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 20),
-
-            // **Convert Button**
-            Center(
-              child: ElevatedButton(
-                onPressed: _convertCurrency, // Calls backend API
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: Text(
-                  'Convert',
-                  style: TextStyle(color: Colors.white),
+
+                SizedBox(height: 10),
+
+                // Arrow icon (points down)
+                Center(
+                  child: Icon(
+                    Icons.arrow_downward,
+                    color: const Color.fromARGB(255, 0, 0, 0),
+                  ),
                 ),
-              ),
-            ),
 
-            Spacer(),
+                SizedBox(height: 10),
 
-            // **Number Pad (Includes Decimal)**
-            GridView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: 12,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 2,
-              ),
-              itemBuilder: (context, index) {
-                if (index == 9) {
-                  return GestureDetector(
-                    onTap: () => onNumberPressed('.'),
-                    child: Center(
-                      child: Text(
-                        '.',
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
+                // **Second Currency Row (TO) - Non-editable**
+                GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          selectedCurrencyTo,
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          convertedAmount.isEmpty ? "0" : convertedAmount,
+                          style: TextStyle(
+                              fontSize: 18,
+                              color: convertedAmount.isEmpty
+                                  ? Colors.black54
+                                  : Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 40),
+
+                // **Updated Convert Button**
+                Center(
+                  child: ElevatedButton(
+                    onPressed: _convertCurrency,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 40, vertical: 9),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                  );
-                } else if (index == 11) {
-                  return GestureDetector(
-                    onTap: onBackspacePressed,
-                    child: Icon(Icons.backspace),
-                  );
-                } else {
-                  String number = index == 10 ? '0' : '${index + 1}';
-                  return GestureDetector(
-                    onTap: () => onNumberPressed(number),
-                    child: Center(
-                      child: Text(
-                        number,
-                        style: TextStyle(fontSize: 24),
-                      ),
+                    child: Text(
+                      'Convert',
+                      style: TextStyle(color: Colors.white, fontSize: 18),
                     ),
-                  );
-                }
-              },
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+
+          Spacer(),
+
+          // **Number Pad**
+          GridView.builder(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: 12,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1.5,
+            ),
+            itemBuilder: (context, index) {
+              if (index == 9) {
+                return _buildNumPadButton('.');
+              } else if (index == 11) {
+                return _buildBackspaceButton();
+              } else {
+                String number = index == 10 ? '0' : '${index + 1}';
+                return _buildNumPadButton(number);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// **Creates a number button with vibration feedback**
+  Widget _buildNumPadButton(String value) {
+    return GestureDetector(
+      onTap: () => onNumberPressed(value),
+      behavior: HitTestBehavior.opaque, // ✅ Makes the whole area tappable
+      child: Center(
+        child: Text(
+          value,
+          style: TextStyle(fontSize: 30), // ✅ Restored font weight
         ),
+      ),
+    );
+  }
+
+  /// **Creates a backspace button with vibration feedback**
+  Widget _buildBackspaceButton() {
+    return GestureDetector(
+      onTap: onBackspacePressed,
+      behavior: HitTestBehavior.opaque, // ✅ Makes the whole area tappable
+      child: Center(
+        child: Icon(Icons.backspace, size: 24),
       ),
     );
   }

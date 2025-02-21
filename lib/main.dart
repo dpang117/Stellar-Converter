@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stellar_converter/screens/converter.dart';
+import 'package:stellar_converter/screens/default_currency.dart';
+import 'package:stellar_converter/screens/startup.dart';
 import 'screens/login_screen.dart';
 import '../screens/currency_list.dart';
 import 'widgets/navigator.dart';
@@ -52,7 +54,7 @@ class MyApp extends StatelessWidget {
               fontSize: 12, fontWeight: FontWeight.w500), // Button text
         ),
       ),
-      home: CurrencyConverterScreen(),
+      home: StartupScreen(),
     );
   }
 }

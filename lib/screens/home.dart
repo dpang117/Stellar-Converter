@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../widgets/navigator.dart'; // ✅ Import the BottomNavigationBarWidget
+import '../widgets/navigator.dart'; // ✅ Import BottomNavigationBarWidget
+import 'currency_list.dart'; // ✅ Import currency selection list
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -8,49 +9,59 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String userInitials = "HS"; // Placeholder
-  String selectedCurrency = "Fiat"; // Default selection
-  int _currentIndex = 0; // ✅ Keeps track of which tab is selected
+  String selectedCurrencyMode = "Crypto"; // Default to Crypto
+  int _currentIndex = 0; // ✅ Keeps track of selected tab
+  List<String> addedFiatCurrencies = [];
+  List<String> addedCryptoCurrencies = [];
 
   /// **Handles navigation between tabs**
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
+  }
 
-    // TODO: Implement navigation logic for different screens
-    print("Navigated to tab: $_currentIndex");
+  /// **Open Currency List Modal**
+  void _openCurrencyList() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CurrencyListScreen(),
+    );
+
+    if (result != null) {
+      setState(() {
+        if (selectedCurrencyMode == "Fiat") {
+          addedFiatCurrencies.add(result);
+        } else {
+          addedCryptoCurrencies.add(result);
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: appBar(context),
-      body: Stack(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              searchField(),
-              FiatCryptoToggle(),
-              addCurrencyOrCoinButton(),
-            ],
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: BottomNavigationBarWidget(
-              onTap: _onTabTapped, // ✅ Pass navigation function
-              currentIndex: _currentIndex, // ✅ Pass current selected index
-            ),
-          ),
+          searchField(),
+          FiatCryptoToggle(),
+          addCurrencyOrCoinButton(),
+          Expanded(child: currencyListView()), // ✅ Displays added currencies
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBarWidget(
+        onTap: _onTabTapped,
+        currentIndex: _currentIndex,
       ),
     );
   }
 
-  /// **Restored Cupertino Fiat-Crypto Toggle**
+  /// **Fiat-Crypto Toggle**
   Padding FiatCryptoToggle() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -58,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(100),
         child: CupertinoSegmentedControl<String>(
           padding: EdgeInsets.all(6),
-          groupValue: selectedCurrency,
+          groupValue: selectedCurrencyMode,
           borderColor: Colors.grey.shade300,
           selectedColor: Colors.black,
           unselectedColor: Colors.white,
@@ -69,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           onValueChanged: (value) {
             setState(() {
-              selectedCurrency = value;
+              selectedCurrencyMode = value;
             });
           },
         ),
@@ -80,13 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// **Dynamic "Add Currency / Add Coin" Button**
   Widget addCurrencyOrCoinButton() {
     String buttonText =
-        selectedCurrency == "Fiat" ? "Add currency" : "Add coin";
+        selectedCurrencyMode == "Fiat" ? "Add currency" : "Add coin";
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 10),
       child: ElevatedButton.icon(
-        onPressed: () {
-          print("$buttonText Clicked!");
-        },
+        onPressed: _openCurrencyList, // ✅ Opens the modal
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
@@ -104,18 +113,70 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// **Builds Each Segment for Cupertino Toggle**
-  Widget _buildSegment(String text) {
+  /// **Displays List of Added Currencies**
+  Widget currencyListView() {
+    List<String> displayedCurrencies = selectedCurrencyMode == "Fiat"
+        ? addedFiatCurrencies
+        : addedCryptoCurrencies;
+
+    return displayedCurrencies.isEmpty
+        ? Center(
+            child: Text("No ${selectedCurrencyMode.toLowerCase()}s added yet"))
+        : ListView.builder(
+            itemCount: displayedCurrencies.length,
+            itemBuilder: (context, index) {
+              return currencyCard(displayedCurrencies[index]);
+            },
+          );
+  }
+
+  /// **Card for a Currency**
+  Widget currencyCard(String currency) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: selectedCurrency == text ? Colors.white : Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.blue, // ✅ Same blue color as the UI
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              currency,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              "\$0.00", // Placeholder for price
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  /// **App Bar with Settings Icon**
+  AppBar appBar(BuildContext context) {
+    return AppBar(
+      title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
+      leading: IconButton(
+        icon: Icon(Icons.settings, size: 26, color: Colors.black),
+        onPressed: () {
+          Navigator.pushNamed(context, "/settings");
+        },
+      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
     );
   }
 
@@ -140,32 +201,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// **App Bar**
-  AppBar appBar(BuildContext context) {
-    return AppBar(
-      title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
-      leading: GestureDetector(
-        onTap: () {
-          print("Settings Clicked!");
-        },
-        child: Container(
-          margin: const EdgeInsets.all(12),
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: Colors.black,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              userInitials,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+  /// **Helper function for Cupertino Toggle**
+  Widget _buildSegment(String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: selectedCurrencyMode == text ? Colors.white : Colors.black,
         ),
       ),
     );
