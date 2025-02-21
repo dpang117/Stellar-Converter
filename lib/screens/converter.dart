@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'currency_list.dart'; // ✅ Import the currency list screen
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class CurrencyConverterScreen extends StatefulWidget {
   @override
@@ -8,21 +11,43 @@ class CurrencyConverterScreen extends StatefulWidget {
 
 class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   String selectedCurrencyFrom = 'USD';
-  String selectedCurrencyTo = 'FCFA';
+  String selectedCurrencyTo = 'BTC';
   String inputAmount = ''; // Stores user input
+  String convertedAmount = ''; // Stores the result after conversion
 
-  // List of available currencies
-  final List<String> fiatCurrencies = ['USD', 'EUR', 'GBP'];
-  final List<String> cryptoCurrencies = ['FCFA', 'NGN', 'KES'];
+  /// **Show Bottom Sheet for Currency Selection**
+  Future<void> _selectCurrency(bool isSelectingFrom) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return CurrencyListScreen(); // ✅ Currency selection list
+      },
+    );
 
+    if (selected != null) {
+      setState(() {
+        if (isSelectingFrom) {
+          selectedCurrencyFrom = selected;
+        } else {
+          selectedCurrencyTo = selected;
+        }
+        convertedAmount = ''; // Clear result when a new currency is selected
+      });
+    }
+  }
+
+  /// **Handles number input from numpad**
   void onNumberPressed(String number) {
     setState(() {
-      // Prevent multiple decimals
-      if (number == '.' && inputAmount.contains('.')) return;
+      if (number == '.' && inputAmount.contains('.'))
+        return; // Prevent multiple decimals
       inputAmount += number;
     });
   }
 
+  /// **Handles backspace on numpad**
   void onBackspacePressed() {
     setState(() {
       if (inputAmount.isNotEmpty) {
@@ -31,12 +56,38 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     });
   }
 
+  /// **Convert currency using backend API**
+  Future<void> _convertCurrency() async {
+    if (inputAmount.isEmpty) return; // No input means no conversion
+
+    final url = Uri.parse(
+        'http://127.0.0.1:5000/convert?from=$selectedCurrencyFrom&to=$selectedCurrencyTo&amount=$inputAmount');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          convertedAmount = data['converted_amount'].toString();
+        });
+      } else {
+        setState(() {
+          convertedAmount = 'Error';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        convertedAmount = 'Error';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: Icon(Icons.arrow_back),
-        actions: [Icon(Icons.arrow_drop_down)],
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -48,104 +99,86 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             // Title
             Text(
               'Converter',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 20),
 
-            // First currency row
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  DropdownButton<String>(
-                    value: selectedCurrencyFrom,
-                    items: fiatCurrencies
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        selectedCurrencyFrom = newValue!;
-                      });
-                    },
-                  ),
-                  Text(
-                    '\$${inputAmount.isEmpty ? "0" : inputAmount}', // Display user input
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ],
+            // **First Currency Row (FROM) - Editable**
+            GestureDetector(
+              onTap: () => _selectCurrency(true),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedCurrencyFrom, // Shows selected currency
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      inputAmount.isEmpty
+                          ? "0"
+                          : inputAmount, // Shows user input
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ],
+                ),
               ),
             ),
 
             SizedBox(height: 10),
 
-            // Arrow icon (now pointing down)
+            // Arrow icon (points down)
             Center(
               child: Icon(
-                Icons.arrow_downward, // ✅ Now points down
+                Icons.arrow_downward,
                 color: Colors.blue,
               ),
             ),
 
             SizedBox(height: 10),
 
-            // Second currency row
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  DropdownButton<String>(
-                    value: selectedCurrencyTo,
-                    items: cryptoCurrencies
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        selectedCurrencyTo = newValue!;
-                      });
-                    },
-                  ),
-                  Text(
-                    selectedCurrencyTo +
-                        " " +
-                        (inputAmount.isEmpty
-                            ? "0"
-                            : inputAmount), // Placeholder for converted value
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ],
+            // **Second Currency Row (TO) - Non-editable**
+            GestureDetector(
+              onTap: () => _selectCurrency(false),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedCurrencyTo, // Shows selected currency
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      convertedAmount, // ✅ **Now only updates after conversion**
+                      style: TextStyle(
+                          fontSize: 18,
+                          color: convertedAmount.isEmpty
+                              ? Colors.black54
+                              : Colors.black), // Default to dimmed if empty
+                    ),
+                  ],
+                ),
               ),
             ),
 
             SizedBox(height: 20),
 
-            // Button
+            // **Convert Button**
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  print(
-                      "Convert $inputAmount $selectedCurrencyFrom to $selectedCurrencyTo");
-                },
+                onPressed: _convertCurrency, // Calls backend API
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -154,7 +187,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                   ),
                 ),
                 child: Text(
-                  'Send money with StellarPay',
+                  'Convert',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -162,11 +195,10 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
 
             Spacer(),
 
-            // Number Pad (Now Includes Decimal Button)
+            // **Number Pad (Includes Decimal)**
             GridView.builder(
               shrinkWrap: true,
-              physics:
-                  NeverScrollableScrollPhysics(), // Prevents scrolling inside GridView
+              physics: NeverScrollableScrollPhysics(),
               itemCount: 12,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
