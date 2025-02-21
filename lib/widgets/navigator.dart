@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stellar_converter/screens/default_currency.dart';
 import '../screens/converter.dart'; // ✅ Import the Converter screen
 
 class BottomNavigationBarWidget extends StatelessWidget {
@@ -56,7 +57,7 @@ class BottomNavigationBarWidget extends StatelessWidget {
                       'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0RpF6FSRdmiMICj6rvpB%2Fd9cb1c6f-dea2-4bfb-85cf-2d67709faf0b.png',
                   label: "Settings",
                   index: 2,
-                  destination: null, // No navigation for this yet
+                  destination: DefaultCurrency(), // No navigation for this yet
                 ),
               ],
             ),

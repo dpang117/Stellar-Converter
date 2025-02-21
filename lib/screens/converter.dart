@@ -149,7 +149,8 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
 
           // **Arrow Icon (Indicates Direction)**
           Center(
-            child: Icon(Icons.arrow_downward, color: Colors.blue),
+            child: Icon(Icons.arrow_downward,
+                color: const Color.fromARGB(255, 0, 0, 0)),
           ),
 
           SizedBox(height: 10),
