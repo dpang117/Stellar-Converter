@@ -1,158 +1,138 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: CurrencyConverterScreen(),
-  ));
-}
-
 class CurrencyConverterScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: Icon(Icons.arrow_back),
+        actions: [Icon(Icons.arrow_drop_down)],
         elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        titleSpacing:
-            0, // Ensures the title is aligned right below the back button
-        title: const Padding(
-          padding:
-              EdgeInsets.only(left: 5), // Keeps it aligned with the back arrow
-          child: Text(
-            'Converter',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-        ),
+        backgroundColor: Colors.transparent,
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
-
-            // Currency Selector Stack (For Overlapping Arrow)
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Column(
-                  children: [
-                    _buildCurrencySelector(
-                      label: 'USD',
-                      value: '\$15',
-                      height: 80, // Increased field height
-                    ),
-                    const SizedBox(height: 5), // Closer together
-                    _buildCurrencySelector(
-                      label: 'FCFA',
-                      value: 'FCFA9,545.40',
-                      height: 80, // Increased field height
-                    ),
-                  ],
-                ),
-
-                // Overlapping Arrow Button
-                Positioned(
-                  top: 55, // Adjusted to overlap both fields
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          spreadRadius: 1,
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.arrow_upward,
-                        size: 18, color: Colors.blue),
-                  ),
-                ),
-              ],
+            // Title
+            Text(
+              'Converter',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-
-            const Spacer(),
-
-            // Bottom Button
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
+            SizedBox(height: 20),
+            // First currency row
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  DropdownButton<String>(
+                    value: 'USD',
+                    items: <String>['USD', 'EUR', 'GBP']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (_) {},
+                  ),
+                  Text(
+                    '\$15',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 10),
+            // Arrow icon
+            Center(
+              child: Icon(
+                Icons.arrow_upward,
+                color: Colors.blue,
+              ),
+            ),
+            SizedBox(height: 10),
+            // Second currency row
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  DropdownButton<String>(
+                    value: 'FCFA',
+                    items: <String>['FCFA', 'NGN', 'KES']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (_) {},
+                  ),
+                  Text(
+                    'FCFA9,545.40',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
+            // Button
+            Center(
               child: ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  minimumSize: const Size(double.infinity, 70),
                 ),
-                child: const Text(
+                child: Text(
                   'Send money with StellarPay',
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
+            ),
+            Spacer(),
+            // Number pad
+            GridView.builder(
+              shrinkWrap: true,
+              itemCount: 12,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 2,
+              ),
+              itemBuilder: (context, index) {
+                if (index == 9) {
+                  return Container();
+                } else if (index == 11) {
+                  return Icon(Icons.backspace);
+                } else {
+                  return Center(
+                    child: Text(
+                      index == 10 ? '0' : '${index + 1}',
+                      style: TextStyle(fontSize: 24),
+                    ),
+                  );
+                }
+              },
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Currency Selector Widget (Larger with Custom Height)
-  Widget _buildCurrencySelector({
-    required String label,
-    required String value,
-    double height = 70, // Default height, customizable
-  }) {
-    return Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 20),
-            ],
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

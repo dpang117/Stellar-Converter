@@ -52,7 +52,7 @@ class MyApp extends StatelessWidget {
               fontSize: 12, fontWeight: FontWeight.w500), // Button text
         ),
       ),
-      home: HomeScreen(),
+      home: CurrencyConverterScreen(),
     );
   }
 }
