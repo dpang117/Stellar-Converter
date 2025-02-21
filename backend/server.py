@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from services.conversion import convert_currency
-from services.exchange_rates import get_available_currencies
+from services.exchange_rates import FIAT_CURRENCIES
 from services.crypto_prices import get_supported_cryptos
 
 app = Flask(__name__)
@@ -9,12 +9,14 @@ app = Flask(__name__)
 def get_all_currencies():
     """Fetch and return both fiat and crypto currencies."""
     print("🔍 Fetching fiat currencies...")
-    fiat_currencies = get_available_currencies()
     
+    # Use dynamically fetched FIAT_CURRENCIES
+    fiat_currencies = {currency: currency for currency in FIAT_CURRENCIES}
+
     print("🔍 Fetching crypto currencies...")
     crypto_currencies = get_supported_cryptos()
 
-    if "error" in fiat_currencies or "error" in crypto_currencies:
+    if not fiat_currencies or "error" in crypto_currencies:
         return jsonify({"error": "Failed to load currency data"}), 500
 
     # Merge fiat and crypto lists

@@ -21,25 +21,30 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
 
   /// Fetch both fiat and crypto currencies from backend
   Future<List<Map<String, String>>> fetchCurrencies() async {
-    final response =
-        await http.get(Uri.parse('http://127.0.0.1:5000/api/currencies'));
+    try {
+      final response =
+          await http.get(Uri.parse('http://127.0.0.1:5000/api/currencies'));
 
-    if (response.statusCode == 200) {
-      Map<String, dynamic> data = json.decode(response.body);
-      List<Map<String, String>> currencyList = [];
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        List<Map<String, String>> currencyList = [];
 
-      data.forEach((code, name) {
-        currencyList.add({"name": name, "code": code});
-      });
+        data.forEach((code, name) {
+          currencyList.add({"name": name, "code": code});
+        });
 
-      setState(() {
-        _allCurrencies = currencyList;
-        _filteredCurrencies = currencyList; // Default to all
-      });
+        setState(() {
+          _allCurrencies = currencyList;
+          _filteredCurrencies = List.from(currencyList); // Ensure copy is made
+        });
 
-      return currencyList;
-    } else {
-      throw Exception('Failed to load currencies');
+        return currencyList;
+      } else {
+        throw Exception('Failed to load currencies');
+      }
+    } catch (e) {
+      print("Error fetching currencies: $e");
+      return [];
     }
   }
 
@@ -47,15 +52,15 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   void _filterCurrencies(String query) {
     if (query.isEmpty) {
       setState(() {
-        _filteredCurrencies = _allCurrencies;
+        _filteredCurrencies = List.from(_allCurrencies);
       });
       return;
     }
 
     setState(() {
       _filteredCurrencies = _allCurrencies.where((currency) {
-        final name = currency["name"]!.toLowerCase();
-        final code = currency["code"]!.toLowerCase();
+        final name = currency["name"]?.toLowerCase() ?? '';
+        final code = currency["code"]?.toLowerCase() ?? '';
         return name.contains(query.toLowerCase()) ||
             code.contains(query.toLowerCase());
       }).toList();
@@ -132,7 +137,7 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
+                      } else if (snapshot.hasError || _allCurrencies.isEmpty) {
                         return Center(child: Text("Error loading currencies"));
                       } else {
                         return ListView.builder(
@@ -141,9 +146,7 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
                           itemBuilder: (context, index) {
                             return ListTile(
                               leading: Icon(
-                                index < 1000
-                                    ? Icons.monetization_on
-                                    : Icons.currency_bitcoin,
+                                Icons.monetization_on,
                                 color: Colors.blue,
                               ),
                               title: Text(
