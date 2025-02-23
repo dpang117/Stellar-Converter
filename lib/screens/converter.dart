@@ -66,7 +66,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     if (inputAmount.isEmpty) return;
 
     final url = Uri.parse(
-        'http://127.0.0.1:5000/convert?from=$selectedCurrencyFrom&to=$selectedCurrencyTo&amount=$inputAmount');
+        'https://stellar-converter.onrender.com/convert?from=$selectedCurrencyFrom&to=$selectedCurrencyTo&amount=$inputAmount');
 
     try {
       final response = await http.get(url);

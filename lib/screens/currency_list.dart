@@ -22,8 +22,8 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   /// Fetch both fiat and crypto currencies from backend
   Future<List<Map<String, String>>> fetchCurrencies() async {
     try {
-      final response =
-          await http.get(Uri.parse('http://127.0.0.1:5000/api/currencies'));
+      final response = await http.get(
+          Uri.parse('https://stellar-converter.onrender.com/api/currencies'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = json.decode(response.body);
