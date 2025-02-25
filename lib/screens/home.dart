@@ -4,6 +4,8 @@ import 'default_currency.dart';
 import '../widgets/navigator.dart';
 import '../widgets/currency_card.dart';
 import 'currency_list.dart';
+import '../services/currency_service.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,10 +13,79 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String selectedCurrencyMode = "Crypto"; // Default selection
+  final CurrencyService _currencyService = CurrencyService();
+  final List<Map<String, dynamic>> displayedCurrencies = [];
+  String selectedCurrencyMode = "Crypto"; // Default to Crypto
   int _currentIndex = 0;
-  List<Map<String, dynamic>> addedFiatCurrencies = [];
-  List<Map<String, dynamic>> addedCryptoCurrencies = [];
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPriceUpdates();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPriceUpdates() {
+    // Update prices immediately
+    _updatePrices();
+    
+    // Then update every 30 seconds
+    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
+      _updatePrices();
+    });
+  }
+
+  Future<void> _updatePrices() async {
+    for (final currency in displayedCurrencies) {
+      try {
+        final data = await _currencyService.getCurrencyData(
+          currency['symbol'],
+          'USD', // Use user's default currency later
+        );
+        
+        setState(() {
+          final index = displayedCurrencies.indexWhere(
+            (c) => c['symbol'] == currency['symbol']
+          );
+          if (index != -1) {
+            displayedCurrencies[index] = data;
+          }
+        });
+      } catch (e) {
+        print('Error updating price for ${currency['symbol']}: $e');
+      }
+    }
+  }
+
+  void _addCurrency() async {
+    final selected = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CurrencyListScreen(mode: selectedCurrencyMode),
+      ),
+    );
+    
+    if (selected != null) {
+      try {
+        final data = await _currencyService.getCurrencyData(selected, 'USD');
+        setState(() {
+          if (!displayedCurrencies.any((c) => c['symbol'] == selected)) {
+            displayedCurrencies.add(data);
+          }
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add currency: $e')),
+        );
+      }
+    }
+  }
 
   /// **Handles navigation between tabs**
   void _onTabTapped(int index) {
@@ -77,9 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 10),
       child: ElevatedButton.icon(
-        onPressed: null, // ✅ Disabled for both Crypto and Fiat
+        onPressed: _addCurrency,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey.shade400, // ✅ Grayed-out color
+          backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(25),
@@ -97,34 +168,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// **Displays List of Added Currencies or Placeholder Message**
   Widget currencyListView() {
-    List<Map<String, dynamic>> displayedCurrencies =
-        selectedCurrencyMode == "Fiat"
-            ? addedFiatCurrencies
-            : addedCryptoCurrencies;
+    return Expanded(
+      child: displayedCurrencies.isEmpty
+          ? Center(
+              child: Text(
+                selectedCurrencyMode == "Fiat"
+                    ? "No ${selectedCurrencyMode.toLowerCase()}s added yet"
+                    : "Price watch is under construction",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            )
+          : ListView.builder(
+              itemCount: displayedCurrencies.length,
+              itemBuilder: (context, index) {
+                final currency = displayedCurrencies[index];
+                final isCrypto = CurrencyService.cryptoCurrencies.contains(currency['symbol']);
+                
+                if ((selectedCurrencyMode == "Crypto") != isCrypto) {
+                  return SizedBox.shrink();
+                }
 
-    return displayedCurrencies.isEmpty
-        ? Center(
-            child: Text(
-              selectedCurrencyMode == "Fiat"
-                  ? "No ${selectedCurrencyMode.toLowerCase()}s added yet"
-                  : "Price watch is under construction",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                return CurrencyCard(
+                  name: currency["name"],
+                  symbol: currency["symbol"],
+                  price: currency["price"],
+                  change: currency["change"],
+                  iconUrl: currency["iconUrl"],
+                  isPositive: !currency["change"].startsWith("-"),
+                );
+              },
             ),
-          )
-        : ListView.builder(
-            itemCount: displayedCurrencies.length,
-            itemBuilder: (context, index) {
-              final currency = displayedCurrencies[index];
-              return CurrencyCard(
-                name: currency["name"],
-                symbol: currency["symbol"].toUpperCase(),
-                price: currency["price"],
-                change: currency["change"],
-                iconUrl: currency["iconUrl"],
-                isPositive: currency["change"].startsWith("-") ? false : true,
-              );
-            },
-          );
+    );
   }
 
   /// **App Bar with Settings Icon**
@@ -140,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       elevation: 0,
     );
   }

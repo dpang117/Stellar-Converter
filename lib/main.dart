@@ -10,11 +10,15 @@ import 'screens/home.dart';
 import 'screens/stellarpay_invite.dart';
 
 void main() {
-  // Set status bar icons to black
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark, // Black icons
-    statusBarBrightness: Brightness.light,
+  // Ensure Flutter is fully initialized before applying UI changes
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Set status bar icons to black (for light backgrounds)
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark.copyWith(
+    statusBarColor: Colors.transparent, // Fully transparent status bar
+    statusBarIconBrightness:
+        Brightness.dark, // Dark icons (for light background)
+    statusBarBrightness: Brightness.light, // Adjusts appearance in iOS
   ));
 
   runApp(MyApp());

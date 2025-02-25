@@ -169,21 +169,6 @@ class CurrencySelectionScreen extends StatefulWidget {
 class _CurrencySelectionScreenState extends State<CurrencySelectionScreen> {
   String selectedCurrency = "Canadian Dollar"; // Default selection
 
-  void _openCurrencyList() async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true, // Allows it to be draggable
-      backgroundColor: Colors.transparent, // Maintains round edges
-      builder: (context) => CurrencyListScreen(),
-    );
-
-    if (result != null) {
-      setState(() {
-        selectedCurrency = result;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -225,36 +210,6 @@ class _CurrencySelectionScreenState extends State<CurrencySelectionScreen> {
             const SizedBox(height: 30),
 
             // Currency Selection Box
-            GestureDetector(
-              onTap: _openCurrencyList,
-              child: Container(
-                width: double.infinity,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEDEFF2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 17),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        selectedCurrency,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          color: Color(0xFF191B1E),
-                          fontFamily: 'SF Pro Display',
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down,
-                          size: 24, color: Colors.black),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
             const SizedBox(height: 30),
 
             // Next Button

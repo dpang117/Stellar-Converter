@@ -16,7 +16,7 @@ class _CurrencySelectionScreenState extends State<DefaultCurrency> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CurrencyListScreen(),
+      builder: (context) => CurrencyListScreen(mode: "Fiat"),
     );
 
     if (result != null) {

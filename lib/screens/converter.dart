@@ -3,6 +3,7 @@ import 'currency_list.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../services/currency_service.dart';
 
 class CurrencyConverterScreen extends StatefulWidget {
   @override
@@ -15,16 +16,15 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   String selectedCurrencyTo = 'BTC';
   String inputAmount = ''; // Stores user input
   String convertedAmount = ''; // Stores the result after conversion
+  final _currencyService = CurrencyService();
 
   /// **Show Bottom Sheet for Currency Selection**
-  Future<void> _selectCurrency(bool isSelectingFrom) async {
+  Future<void> _showBottomSheet(bool isSelectingFrom) async {
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return CurrencyListScreen(); // ✅ Currency selection list
-      },
+      builder: (context) => CurrencyListScreen(mode: isSelectingFrom ? "From" : "To"),
     );
 
     if (selected != null && selected.isNotEmpty) {
@@ -65,22 +65,16 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   Future<void> _convertCurrency() async {
     if (inputAmount.isEmpty) return;
 
-    final url = Uri.parse(
-        'https://stellar-converter.onrender.com/convert?from=$selectedCurrencyFrom&to=$selectedCurrencyTo&amount=$inputAmount');
-
     try {
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          convertedAmount = data['converted_amount'].toString();
-        });
-      } else {
-        setState(() {
-          convertedAmount = 'Error';
-        });
-      }
+      final result = await _currencyService.convertCurrency(
+        baseCurrency: selectedCurrencyFrom,
+        amount: double.parse(inputAmount),
+        targetCurrencies: [selectedCurrencyTo],
+      );
+      
+      setState(() {
+        convertedAmount = result[selectedCurrencyTo]?.toString() ?? 'Error';
+      });
     } catch (e) {
       setState(() {
         convertedAmount = 'Error';
@@ -118,7 +112,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: GestureDetector(
-              onTap: () => _selectCurrency(true),
+              onTap: () => _showBottomSheet(true),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
@@ -159,7 +153,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: GestureDetector(
-              onTap: () => _selectCurrency(false),
+              onTap: () => _showBottomSheet(false),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
