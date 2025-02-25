@@ -6,22 +6,26 @@ import '../widgets/currency_card.dart';
 import 'currency_list.dart';
 import '../services/currency_service.dart';
 import 'dart:async';
+import '../screens/currency_detail.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  HomeScreenState createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final CurrencyService _currencyService = CurrencyService();
   final List<Map<String, dynamic>> displayedCurrencies = [];
   String selectedCurrencyMode = "Crypto"; // Default to Crypto
   int _currentIndex = 0;
   Timer? _refreshTimer;
+  String defaultCurrency = 'USD';
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _loadDefaultCurrency();
     _startPriceUpdates();
   }
 
@@ -29,6 +33,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadDefaultCurrency() async {
+    final currency = await CurrencyService.getDefaultCurrency();
+    setState(() {
+      defaultCurrency = currency;
+    });
   }
 
   void _startPriceUpdates() {
@@ -42,24 +53,41 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _updatePrices() async {
-    for (final currency in displayedCurrencies) {
-      try {
-        final data = await _currencyService.getCurrencyData(
-          currency['symbol'],
-          'USD', // Use user's default currency later
-        );
-        
-        setState(() {
-          final index = displayedCurrencies.indexWhere(
-            (c) => c['symbol'] == currency['symbol']
-          );
-          if (index != -1) {
-            displayedCurrencies[index] = data;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Update all currencies in parallel
+      final futures = displayedCurrencies.map((currency) async {
+        try {
+          return await _currencyService.getCurrencyData(currency['symbol']);
+        } catch (e) {
+          print('Error updating price for ${currency['symbol']}: $e');
+          return null;
+        }
+      });
+
+      // Wait for all updates to complete
+      final results = await Future.wait(futures);
+
+      // Update state once with all new data
+      setState(() {
+        for (int i = 0; i < results.length; i++) {
+          if (results[i] != null) {
+            final index = displayedCurrencies.indexWhere(
+              (c) => c['symbol'] == displayedCurrencies[i]['symbol']
+            );
+            if (index != -1) {
+              displayedCurrencies[index] = results[i]!;
+            }
           }
-        });
-      } catch (e) {
-        print('Error updating price for ${currency['symbol']}: $e');
-      }
+        }
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -73,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
     if (selected != null) {
       try {
-        final data = await _currencyService.getCurrencyData(selected, 'USD');
+        final data = await _currencyService.getCurrencyData(selected);
         setState(() {
           if (!displayedCurrencies.any((c) => c['symbol'] == selected)) {
             displayedCurrencies.add(data);
@@ -94,10 +122,64 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void openDefaultCurrency() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final newCurrency = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => DefaultCurrency()),
+    );
+
+    if (newCurrency != null && newCurrency != defaultCurrency) {
+      setState(() {
+        defaultCurrency = newCurrency;
+      });
+      await _updatePrices();
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _openCurrencyDetail(Map<String, dynamic> currency) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CurrencyDetailScreen(
+          symbol: currency["symbol"],
+          name: currency["name"],
+          initialPrice: currency["price"],
+          initialChange: currency["change"],
+          isPositive: !currency["change"].startsWith("-"),
+          initialChartData: currency["chartData"],
+        ),
+      ),
+    );
+
+    if (result != null && result is Map && result['action'] == 'delete') {
+      setState(() {
+        displayedCurrencies.removeWhere(
+          (c) => c['symbol'] == result['symbol']
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: appBar(context),
+      appBar: AppBar(
+        title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
+        leading: IconButton(
+          icon: Icon(Icons.settings, size: 26, color: Colors.black),
+          onPressed: openDefaultCurrency,
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -168,13 +250,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// **Displays List of Added Currencies or Placeholder Message**
   Widget currencyListView() {
+    if (_isLoading) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Updating prices...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Expanded(
       child: displayedCurrencies.isEmpty
           ? Center(
               child: Text(
                 selectedCurrencyMode == "Fiat"
-                    ? "No ${selectedCurrencyMode.toLowerCase()}s added yet"
-                    : "Price watch is under construction",
+                    ? "No currencies added yet"
+                    : "No cryptos added yet",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             )
@@ -188,34 +293,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   return SizedBox.shrink();
                 }
 
-                return CurrencyCard(
-                  name: currency["name"],
-                  symbol: currency["symbol"],
-                  price: currency["price"],
-                  change: currency["change"],
-                  iconUrl: currency["iconUrl"],
-                  isPositive: !currency["change"].startsWith("-"),
+                return GestureDetector(
+                  onTap: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CurrencyDetailScreen(
+                          symbol: currency["symbol"],
+                          name: currency["name"],
+                          initialPrice: currency["price"],
+                          initialChange: currency["change"],
+                          isPositive: !currency["change"].startsWith("-"),
+                          initialChartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
+                        ),
+                      ),
+                    );
+
+                    if (result != null && result is Map && result['action'] == 'delete') {
+                      setState(() {
+                        displayedCurrencies.removeWhere(
+                          (c) => c['symbol'] == result['symbol']
+                        );
+                      });
+                    }
+                  },
+                  child: CurrencyCard(
+                    name: currency["name"],
+                    symbol: currency["symbol"],
+                    price: currency["price"],
+                    change: currency["change"],
+                    iconUrl: currency["iconUrl"],
+                    isPositive: !currency["change"].startsWith("-"),
+                    chartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
+                  ),
                 );
               },
             ),
-    );
-  }
-
-  /// **App Bar with Settings Icon**
-  AppBar appBar(BuildContext context) {
-    return AppBar(
-      title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
-      leading: IconButton(
-        icon: Icon(Icons.settings, size: 26, color: Colors.black),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => DefaultCurrency()),
-          );
-        },
-      ),
-      backgroundColor: Colors.white,
-      elevation: 0,
     );
   }
 

@@ -1,15 +1,37 @@
 import 'package:flutter/material.dart';
 import 'currency_list.dart';
 import 'home.dart'; // ✅ Import HomeScreen for navigation
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/currency_service.dart';
 
 class DefaultCurrency extends StatefulWidget {
   @override
-  _CurrencySelectionScreenState createState() =>
-      _CurrencySelectionScreenState();
+  _DefaultCurrencyState createState() => _DefaultCurrencyState();
 }
 
-class _CurrencySelectionScreenState extends State<DefaultCurrency> {
-  String selectedCurrency = "Canadian Dollar"; // Default selection
+class _DefaultCurrencyState extends State<DefaultCurrency> {
+  String selectedCurrency = 'USD';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentCurrency();
+  }
+
+  Future<void> _loadCurrentCurrency() async {
+    final currency = await CurrencyService.getDefaultCurrency();
+    setState(() {
+      selectedCurrency = currency;
+    });
+  }
+
+  Future<void> _saveAndUpdateCurrency() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(CurrencyService.DEFAULT_CURRENCY_KEY, selectedCurrency);
+    
+    // Pop back to previous screen with both the new currency and loading state
+    Navigator.pop(context, selectedCurrency);
+  }
 
   void _openCurrencyList() async {
     final result = await showModalBottomSheet<String>(
@@ -101,9 +123,7 @@ class _CurrencySelectionScreenState extends State<DefaultCurrency> {
 
             // **Confirm Button (Returns to HomeScreen)**
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // ✅ Go back to HomeScreen
-              },
+              onPressed: _saveAndUpdateCurrency,
               child: const Text("Confirm"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 0, 0, 0),

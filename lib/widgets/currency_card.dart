@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/currency_service.dart';
+import '../screens/currency_detail.dart';
 
 class CurrencyCard extends StatelessWidget {
   final String name;
@@ -9,6 +10,8 @@ class CurrencyCard extends StatelessWidget {
   final String change;
   final String iconUrl;
   final bool isPositive;
+  final List<double> chartData;
+  final VoidCallback? onRemove;
 
   // Map of fiat currency codes to their flag emojis
   static const Map<String, String> fiatFlags = {
@@ -82,6 +85,8 @@ class CurrencyCard extends StatelessWidget {
     required this.change,
     required this.iconUrl,
     required this.isPositive,
+    this.chartData = const [],
+    this.onRemove,
   }) : super(key: key);
 
   Widget _buildIcon() {
@@ -150,7 +155,7 @@ class CurrencyCard extends StatelessWidget {
             child: _buildIcon(),
           ),
 
-          // Currency Details
+          // Currency Details and Mini Chart
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,16 +169,22 @@ class CurrencyCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  '24h',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                Container(
+                  height: 20,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: ChartPainter(
+                      data: chartData,
+                      lineColor: isPositive ? Colors.green[300]! : Colors.red[300]!,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
+          SizedBox(width: 16),
 
           // Price and Change
           Column(
@@ -214,11 +225,14 @@ class ChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
+    // Line paint
     final paint = Paint()
       ..color = lineColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
+    // Draw chart line
     final path = Path();
     final max = data.reduce((a, b) => a > b ? a : b);
     final min = data.reduce((a, b) => a < b ? a : b);
@@ -230,12 +244,43 @@ class ChartPainter extends CustomPainter {
     for (int i = 1; i < data.length; i++) {
       final x = xStep * i;
       final y = size.height * (1 - (data[i] - min) / range);
-      path.lineTo(x, y);
+      
+      if (i < data.length - 1) {
+        final nextX = xStep * (i + 1);
+        final nextY = size.height * (1 - (data[i + 1] - min) / range);
+        
+        // Use less aggressive smoothing
+        final controlX = x + (nextX - x) * 0.25;
+        final controlY = y;
+        
+        path.quadraticBezierTo(controlX, controlY, nextX, nextY);
+      } else {
+        path.lineTo(x, y);
+      }
     }
 
     canvas.drawPath(path, paint);
+
+    // Add gradient fill
+    final fillPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          lineColor.withOpacity(0.2),
+          lineColor.withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawPath(fillPath, fillPaint);
   }
 
   @override
-  bool shouldRepaint(ChartPainter oldDelegate) => false;
+  bool shouldRepaint(ChartPainter oldDelegate) =>
+      data != oldDelegate.data || lineColor != oldDelegate.lineColor;
 } 
