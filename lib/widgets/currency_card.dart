@@ -140,11 +140,13 @@ class CurrencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCrypto = CurrencyService.cryptoCurrencies.contains(symbol);
+    
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0156FE),
+        color: isCrypto ? const Color(0xFF0156FE) : Colors.black,  // Blue for crypto, black for fiat
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

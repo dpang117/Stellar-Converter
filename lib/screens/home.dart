@@ -21,16 +21,20 @@ class HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
   String defaultCurrency = 'USD';
   bool _isLoading = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadDefaultCurrency();
+    _loadSavedWatchlist();
     _startPriceUpdates();
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -39,6 +43,14 @@ class HomeScreenState extends State<HomeScreen> {
     final currency = await CurrencyService.getDefaultCurrency();
     setState(() {
       defaultCurrency = currency;
+    });
+  }
+
+  Future<void> _loadSavedWatchlist() async {
+    final savedWatchlist = await CurrencyService.loadWatchlist();
+    setState(() {
+      displayedCurrencies.clear();
+      displayedCurrencies.addAll(savedWatchlist);
     });
   }
 
@@ -107,6 +119,7 @@ class HomeScreenState extends State<HomeScreen> {
         setState(() {
           if (!displayedCurrencies.any((c) => c['symbol'] == selected)) {
             displayedCurrencies.add(data);
+            CurrencyService.saveWatchlist(displayedCurrencies);
           }
         });
       } catch (e) {
@@ -156,7 +169,7 @@ class HomeScreenState extends State<HomeScreen> {
           initialPrice: currency["price"],
           initialChange: currency["change"],
           isPositive: !currency["change"].startsWith("-"),
-          initialChartData: currency["chartData"],
+          initialChartData: List<double>.from(currency["chartData"] ?? []),
         ),
       ),
     );
@@ -166,8 +179,29 @@ class HomeScreenState extends State<HomeScreen> {
         displayedCurrencies.removeWhere(
           (c) => c['symbol'] == result['symbol']
         );
+        CurrencyService.saveWatchlist(displayedCurrencies);
       });
     }
+  }
+
+  List<Map<String, dynamic>> getFilteredCurrencies() {
+    if (_searchQuery.isEmpty) {
+      return displayedCurrencies.where((currency) {
+        final isCrypto = CurrencyService.cryptoCurrencies.contains(currency['symbol']);
+        return (selectedCurrencyMode == "Crypto") == isCrypto;
+      }).toList();
+    }
+
+    return displayedCurrencies.where((currency) {
+      final isCrypto = CurrencyService.cryptoCurrencies.contains(currency['symbol']);
+      final matchesType = (selectedCurrencyMode == "Crypto") == isCrypto;
+      
+      final matchesSearch = 
+        currency['symbol'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        currency['name'].toLowerCase().contains(_searchQuery.toLowerCase());
+      
+      return matchesType && matchesSearch;
+    }).toList();
   }
 
   @override
@@ -275,50 +309,25 @@ class HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final filteredCurrencies = getFilteredCurrencies();
+
     return Expanded(
-      child: displayedCurrencies.isEmpty
+      child: filteredCurrencies.isEmpty
           ? Center(
               child: Text(
-                selectedCurrencyMode == "Fiat"
-                    ? "No currencies added yet"
-                    : "No cryptos added yet",
+                _searchQuery.isEmpty
+                    ? "${selectedCurrencyMode == 'Fiat' ? 'No currencies' : 'No cryptos'} added yet"
+                    : "No matches found",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             )
           : ListView.builder(
-              itemCount: displayedCurrencies.length,
+              itemCount: filteredCurrencies.length,
               itemBuilder: (context, index) {
-                final currency = displayedCurrencies[index];
-                final isCrypto = CurrencyService.cryptoCurrencies.contains(currency['symbol']);
+                final currency = filteredCurrencies[index];
                 
-                if ((selectedCurrencyMode == "Crypto") != isCrypto) {
-                  return SizedBox.shrink();
-                }
-
                 return GestureDetector(
-                  onTap: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CurrencyDetailScreen(
-                          symbol: currency["symbol"],
-                          name: currency["name"],
-                          initialPrice: currency["price"],
-                          initialChange: currency["change"],
-                          isPositive: !currency["change"].startsWith("-"),
-                          initialChartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
-                        ),
-                      ),
-                    );
-
-                    if (result != null && result is Map && result['action'] == 'delete') {
-                      setState(() {
-                        displayedCurrencies.removeWhere(
-                          (c) => c['symbol'] == result['symbol']
-                        );
-                      });
-                    }
-                  },
+                  onTap: () => _openCurrencyDetail(currency),
                   child: CurrencyCard(
                     name: currency["name"],
                     symbol: currency["symbol"],
@@ -339,13 +348,15 @@ class HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: EdgeInsets.only(top: 7, bottom: 6, left: 10, right: 10),
       child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value),
         keyboardType: TextInputType.text,
         decoration: InputDecoration(
           filled: true,
           fillColor: Color(0xFFEDEFF2),
           contentPadding: EdgeInsets.all(5),
           prefixIcon: Icon(Icons.search),
-          hintText: 'Search',
+          hintText: 'Search ${selectedCurrencyMode.toLowerCase()}s',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(50),
             borderSide: BorderSide.none,

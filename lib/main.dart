@@ -2,23 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stellar_converter/screens/converter.dart';
 import 'package:stellar_converter/screens/default_currency.dart';
-import 'package:stellar_converter/screens/startup.dart';
 import 'screens/login_screen.dart';
 import '../screens/currency_list.dart';
 import 'widgets/navigator.dart';
 import 'screens/home.dart';
 import 'screens/stellarpay_invite.dart';
+import 'screens/startup.dart';
 
 void main() {
   // Ensure Flutter is fully initialized before applying UI changes
   WidgetsFlutterBinding.ensureInitialized();
 
   // Set status bar icons to black (for light backgrounds)
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark.copyWith(
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
     statusBarColor: Colors.transparent, // Fully transparent status bar
-    statusBarIconBrightness:
-        Brightness.dark, // Dark icons (for light background)
-    statusBarBrightness: Brightness.light, // Adjusts appearance in iOS
+    statusBarIconBrightness: Brightness.light, // Dark icons on light background
+    statusBarBrightness: Brightness.dark, // iOS
   ));
 
   runApp(MyApp());

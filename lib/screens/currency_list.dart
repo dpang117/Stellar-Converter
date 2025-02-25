@@ -84,6 +84,22 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
     'BHD': '🇧🇭',
   };
 
+  // Add stablecoins set
+  static const Set<String> stablecoins = {
+    'USDT', 'USDC', 'BUSD', 'DAI', 'UST', 'SUSD', 'TUSD', 'HUSD', 'USDP', 'GUSD',
+    'RSR', 'MIM', 'FRAX', 'OUSD', 'LUSD', 'XSGD', 'EURS', 'EURT', 'USDX', 'USDN'
+  };
+
+  // Define fiat currencies
+  static const Set<String> fiatCurrencies = {
+    'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'HKD', 'NZD', 'CNY', 'SGD',
+    'ZAR', 'INR', 'BRL', 'RUB', 'AED', 'TWD', 'KRW', 'MXN', 'SAR', 'PLN', 'DKK',
+    'SEK', 'NOK', 'THB', 'ILS', 'QAR', 'KWD', 'PHP', 'TRY', 'CZK', 'IDR', 'MYR',
+    'HUF', 'VND', 'ISK', 'RON', 'HRK', 'BGN', 'UAH', 'UYU', 'ARS', 'COP', 'CLP',
+    'PEN', 'MAD', 'NGN', 'KES', 'DZD', 'EGP', 'BDT', 'PKR', 'VEF', 'IRR', 'JOD',
+    'NPR', 'LKR', 'OMR', 'MMK', 'BHD'
+  };
+
   @override
   void initState() {
     super.initState();
@@ -96,11 +112,11 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
       // For watchlist mode, filter based on crypto/fiat
       if (widget.mode == "Crypto") {
         currencies = allCurrencies
-            .where((c) => CurrencyService.cryptoCurrencies.contains(c))
+            .where((c) => CurrencyService.cryptoCurrencies.contains(c) || stablecoins.contains(c))
             .toList();
       } else if (widget.mode == "Fiat") {
         currencies = allCurrencies
-            .where((c) => !CurrencyService.cryptoCurrencies.contains(c))
+            .where((c) => fiatCurrencies.contains(c))  // Only show true fiat currencies
             .toList();
       } else {
         // For converter and default currency, show all currencies
@@ -124,6 +140,7 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   }
 
   Widget _buildCurrencyIcon(String currency) {
+    // Use SVG for supported crypto icons
     if (CurrencyService.cryptoCurrencies.contains(currency)) {
       return SvgPicture.asset(
         'assets/crypto_icons/${currency.toLowerCase()}.svg',
@@ -131,22 +148,23 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
         height: 32,
         placeholderBuilder: (context) => _buildFallbackIcon(currency),
       );
-    } else {
-      return Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Text(
-            fiatFlags[currency] ?? currency[0],
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      );
     }
+    
+    // Use flag emoji for fiat or first letter for others
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          fiatFlags[currency] ?? currency[0],
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
+    );
   }
 
   Widget _buildFallbackIcon(String currency) {
@@ -159,10 +177,8 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
       ),
       child: Center(
         child: Text(
-          fiatFlags[currency] ?? currency[0],
-          style: TextStyle(
-            fontSize: 16,
-          ),
+          currency[0],
+          style: TextStyle(fontSize: 16),
         ),
       ),
     );
