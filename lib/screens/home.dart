@@ -92,10 +92,12 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   void _addCurrency() async {
-    final selected = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CurrencyListScreen(mode: selectedCurrencyMode),
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CurrencyListScreen(
+        mode: selectedCurrencyMode,
       ),
     );
     

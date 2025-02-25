@@ -50,9 +50,13 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   }
 
   void _addCurrency() async {
-    final selected = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (context) => CurrencyListScreen()),
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CurrencyListScreen(
+        mode: showCrypto ? "Crypto" : "Fiat",
+      ),
     );
     
     if (selected != null && !watchlist.contains(selected)) {

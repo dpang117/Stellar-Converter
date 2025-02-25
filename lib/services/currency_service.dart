@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
 class CurrencyService {
   static const String baseUrl = 'http://api.stellarpay.app/conversion';
@@ -73,6 +74,17 @@ class CurrencyService {
     return prefs.getString(DEFAULT_CURRENCY_KEY) ?? 'USD';
   }
 
+  // Add this helper method
+  String _formatNumber(double number) {
+    final formatter = NumberFormat.decimalPattern();
+    if (number >= 1) {
+      return formatter.format(number);
+    } else {
+      // For numbers less than 1, keep more decimal places
+      return number.toStringAsFixed(6);
+    }
+  }
+
   // Update getCurrencyData to use default currency
   Future<Map<String, dynamic>> getCurrencyData(String symbol) async {
     final defaultCurrency = await getDefaultCurrency();
@@ -88,26 +100,28 @@ class CurrencyService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['response']['status'] == 'success') {
-          // Generate 24 hour chart data with more realistic price movements
           final price = data['response']['body'][defaultCurrency.toUpperCase()];
           final random = Random();
-          final volatility = 0.02; // 2% price movement
+          final volatility = 0.02;
           
           double currentPrice = price;
           final List<double> chartData = [];
           
           for (int i = 0; i < 24; i++) {
             chartData.add(currentPrice);
-            // Random walk with drift
             final change = currentPrice * volatility * (random.nextDouble() - 0.5);
             currentPrice += change;
           }
 
+          // Format the price with commas
+          final formattedPrice = '$defaultCurrency ${_formatNumber(price)}';
+          final changePercent = (random.nextDouble() * 10 * (random.nextBool() ? 1 : -1));
+          
           return {
             'name': symbol,
             'symbol': symbol,
-            'price': '$defaultCurrency ${price.toStringAsFixed(2)}',
-            'change': '${(random.nextDouble() * 10 * (random.nextBool() ? 1 : -1)).toStringAsFixed(2)}%',
+            'price': formattedPrice,
+            'change': '${changePercent.toStringAsFixed(2)}%',
             'iconUrl': 'assets/crypto_icons/${symbol.toLowerCase()}.svg',
             'chartData': chartData,
           };
@@ -134,10 +148,11 @@ class CurrencyService {
                         timeframe == 'all' ? 1825 : 
                         24;
 
-      // Generate more realistic price data based on the current price
-      final currentPrice = double.parse(
-        (await getCurrencyData(symbol))['price'].split(' ')[1]
-      );
+      // Get the raw price data
+      final data = await getCurrencyData(symbol);
+      // Parse the price string by removing currency symbol and commas
+      final priceStr = data['price'].split(' ')[1].replaceAll(',', '');
+      final currentPrice = double.parse(priceStr);
       
       final random = Random();
       final volatility = 0.02; // 2% price movement

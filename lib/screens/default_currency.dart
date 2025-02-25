@@ -33,17 +33,19 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
     Navigator.pop(context, selectedCurrency);
   }
 
-  void _openCurrencyList() async {
-    final result = await showModalBottomSheet<String>(
+  void _showCurrencyPicker() async {
+    final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CurrencyListScreen(mode: "Fiat"),
+      builder: (context) => CurrencyListScreen(
+        mode: "From",  // Show all currencies for default selection
+      ),
     );
 
-    if (result != null) {
+    if (selected != null) {
       setState(() {
-        selectedCurrency = result;
+        selectedCurrency = selected;
       });
     }
   }
@@ -90,7 +92,7 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
 
             // **Currency Selection Box**
             GestureDetector(
-              onTap: _openCurrencyList,
+              onTap: _showCurrencyPicker,
               child: Container(
                 width: double.infinity,
                 height: 58,

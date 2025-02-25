@@ -93,15 +93,17 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   void _loadCurrencies() async {
     final allCurrencies = await _currencyService.getAvailableCurrencies();
     setState(() {
+      // For watchlist mode, filter based on crypto/fiat
       if (widget.mode == "Crypto") {
-        currencies = allCurrencies.where((c) => 
-          CurrencyService.cryptoCurrencies.contains(c)
-        ).toList();
+        currencies = allCurrencies
+            .where((c) => CurrencyService.cryptoCurrencies.contains(c))
+            .toList();
       } else if (widget.mode == "Fiat") {
-        currencies = allCurrencies.where((c) => 
-          !CurrencyService.cryptoCurrencies.contains(c)
-        ).toList();
+        currencies = allCurrencies
+            .where((c) => !CurrencyService.cryptoCurrencies.contains(c))
+            .toList();
       } else {
+        // For converter and default currency, show all currencies
         currencies = allCurrencies;
       }
       filteredCurrencies = List.from(currencies);
@@ -122,8 +124,7 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   }
 
   Widget _buildCurrencyIcon(String currency) {
-    // Only try to load SVG for crypto currencies
-    if (widget.mode == "Crypto" && CurrencyService.cryptoCurrencies.contains(currency)) {
+    if (CurrencyService.cryptoCurrencies.contains(currency)) {
       return SvgPicture.asset(
         'assets/crypto_icons/${currency.toLowerCase()}.svg',
         width: 32,
@@ -131,8 +132,20 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
         placeholderBuilder: (context) => _buildFallbackIcon(currency),
       );
     } else {
-      // For fiat currencies, use flag emoji
-      return _buildFallbackIcon(currency);
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            fiatFlags[currency] ?? currency[0],
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
     }
   }
 
@@ -158,70 +171,73 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
+      color: Colors.transparent,
       child: Container(
         height: MediaQuery.of(context).size.height * 0.75,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(
-          children: [
-            // Drag indicator
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                margin: EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Drag indicator
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  margin: EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
-            ),
-            
-            // Search bar and title
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select Currency',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  SizedBox(height: 16),
-                  TextField(
-                    controller: _searchController,
-                    onChanged: _filterCurrencies,
-                    decoration: InputDecoration(
-                      hintText: 'Search currency...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
+
+              // Search bar and title
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select Currency',
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                  ),
-                ],
+                    SizedBox(height: 16),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: _filterCurrencies,
+                      decoration: InputDecoration(
+                        hintText: 'Search currency...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            
-            // Currency list
-            Expanded(
-              child: ListView.builder(
-                itemCount: filteredCurrencies.length,
-                itemBuilder: (context, index) {
-                  final currency = filteredCurrencies[index];
-                  return ListTile(
-                    leading: _buildCurrencyIcon(currency),
-                    title: Text(currency),
-                    onTap: () => Navigator.pop(context, currency),
-                  );
-                },
+
+              // Currency list
+              Expanded(
+                child: ListView.builder(
+                  itemCount: filteredCurrencies.length,
+                  itemBuilder: (context, index) {
+                    final currency = filteredCurrencies[index];
+                    return ListTile(
+                      leading: _buildCurrencyIcon(currency),
+                      title: Text(currency),
+                      onTap: () => Navigator.pop(context, currency),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

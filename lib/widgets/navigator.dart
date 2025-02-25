@@ -57,7 +57,7 @@ class BottomNavigationBarWidget extends StatelessWidget {
             width: 24,
             height: 24,
           ),
-          label: 'Transfer',
+          label: 'Convert',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.settings_outlined),

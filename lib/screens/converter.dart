@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/currency_service.dart';
+import 'package:intl/intl.dart';
 
 class CurrencyConverterScreen extends StatefulWidget {
   @override
@@ -24,7 +25,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CurrencyListScreen(mode: isSelectingFrom ? "From" : "To"),
+      builder: (context) => CurrencyListScreen(
+        mode: isSelectingFrom ? "From" : "To",
+      ),
     );
 
     if (selected != null && selected.isNotEmpty) {
@@ -73,12 +76,23 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       );
       
       setState(() {
-        convertedAmount = result[selectedCurrencyTo]?.toString() ?? 'Error';
+        // Format the number when displaying
+        final value = result[selectedCurrencyTo];
+        convertedAmount = value != null ? _formatNumber(value) : 'Error';
       });
     } catch (e) {
       setState(() {
         convertedAmount = 'Error';
       });
+    }
+  }
+
+  String _formatNumber(double number) {
+    final formatter = NumberFormat.decimalPattern();
+    if (number >= 1) {
+      return formatter.format(number);
+    } else {
+      return number.toStringAsFixed(6);
     }
   }
 
