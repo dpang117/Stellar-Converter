@@ -374,7 +374,25 @@ class CurrencyService {
       return cachedData.data;
     }
 
-    // Check if we have data from a longer timeframe that we can reuse
+    // Try to reuse data from longer timeframes
+    if (timeframe == '1w') {
+      // Try to use data from 2w or 1m
+      final twoWeekData = _timeseriesCache['${symbol}_2w'];
+      final monthData = _timeseriesCache['${symbol}_1m'];
+      
+      if (twoWeekData?.isValid() ?? false) {
+        print('Reusing 2w data for 1w view');
+        final weekData = twoWeekData!.data.sublist(max(0, twoWeekData.data.length - 7));
+        _timeseriesCache[cacheKey] = _CacheEntry(weekData, now, timeframe);
+        return weekData;
+      } else if (monthData?.isValid() ?? false) {
+        print('Reusing 1m data for 1w view');
+        final weekData = monthData!.data.sublist(max(0, monthData.data.length - 7));
+        _timeseriesCache[cacheKey] = _CacheEntry(weekData, now, timeframe);
+        return weekData;
+      }
+    }
+
     if (timeframe == '2w') {
       final monthData = _timeseriesCache['${symbol}_1m'];
       if (monthData != null && monthData.isValid()) {
@@ -382,6 +400,34 @@ class CurrencyService {
         final twoWeeksData = monthData.data.sublist(max(0, monthData.data.length - 14));
         _timeseriesCache[cacheKey] = _CacheEntry(twoWeeksData, now, timeframe);
         return twoWeeksData;
+      }
+    }
+    
+    if (timeframe == '1m') {
+      final twoWeekData = _timeseriesCache['${symbol}_2w'];
+      if (twoWeekData != null && twoWeekData.isValid()) {
+        print('Using 2w data for partial 1m view');
+        // Only fetch the remaining days
+        final remainingStartDate = now.subtract(Duration(days: 30));
+        final twoWeeksAgo = now.subtract(Duration(days: 14));
+        
+        try {
+          final defaultCurrency = await getDefaultCurrency();
+          final remainingData = await getTimeseriesData(
+            symbol, 
+            remainingStartDate, 
+            twoWeeksAgo,
+            defaultCurrency
+          );
+          
+          // Combine old and new data
+          final fullMonthData = [...remainingData, ...twoWeekData.data];
+          _timeseriesCache[cacheKey] = _CacheEntry(fullMonthData, now, timeframe);
+          return fullMonthData;
+        } catch (e) {
+          print('Error fetching remaining data: $e');
+          return twoWeekData.data;
+        }
       }
     }
 
@@ -410,13 +456,18 @@ class CurrencyService {
       final defaultCurrency = await getDefaultCurrency();
       final data = await getTimeseriesData(symbol, startDate, now, defaultCurrency);
       
-      // Cache the data
+      // Cache the data and create caches for shorter timeframes
       _timeseriesCache[cacheKey] = _CacheEntry(data, now, timeframe);
 
-      // If we fetched a month of data, also cache 2w view
+      // Cache subsets of data for shorter timeframes
       if (timeframe == '1m') {
         final twoWeeksData = data.sublist(max(0, data.length - 14));
+        final weekData = data.sublist(max(0, data.length - 7));
         _timeseriesCache['${symbol}_2w'] = _CacheEntry(twoWeeksData, now, '2w');
+        _timeseriesCache['${symbol}_1w'] = _CacheEntry(weekData, now, '1w');
+      } else if (timeframe == '2w') {
+        final weekData = data.sublist(max(0, data.length - 7));
+        _timeseriesCache['${symbol}_1w'] = _CacheEntry(weekData, now, '1w');
       }
 
       return data;
