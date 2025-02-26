@@ -7,9 +7,7 @@ class CurrencyCard extends StatelessWidget {
   final String name;
   final String symbol;
   final String price;
-  final String change;
   final String iconUrl;
-  final bool isPositive;
   final List<double> chartData;
   final VoidCallback? onRemove;
 
@@ -82,9 +80,7 @@ class CurrencyCard extends StatelessWidget {
     required this.name,
     required this.symbol,
     required this.price,
-    required this.change,
     required this.iconUrl,
-    required this.isPositive,
     this.chartData = const [],
     this.onRemove,
   }) : super(key: key);
@@ -146,7 +142,7 @@ class CurrencyCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCrypto ? const Color(0xFF0156FE) : Colors.black,  // Blue for crypto, black for fiat
+        color: isCrypto ? const Color(0xFF0156FE) : Colors.black,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -178,7 +174,7 @@ class CurrencyCard extends StatelessWidget {
                     size: Size.infinite,
                     painter: ChartPainter(
                       data: chartData,
-                      lineColor: isPositive ? Colors.green[300]! : Colors.red[300]!,
+                      lineColor: Colors.white.withOpacity(0.5),
                     ),
                   ),
                 ),
@@ -188,28 +184,14 @@ class CurrencyCard extends StatelessWidget {
 
           SizedBox(width: 16),
 
-          // Price and Change
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                price,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                change,
-                style: TextStyle(
-                  color: isPositive ? Colors.green[300] : Colors.red[300],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          // Price
+          Text(
+            price,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

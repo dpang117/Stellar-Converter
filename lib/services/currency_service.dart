@@ -4,6 +4,28 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
+import '../models/currency_conversion.dart';
+
+// Move _CacheEntry class to top level, before CurrencyService class
+class _CacheEntry {
+  final List<double> data;
+  final DateTime timestamp;
+  final String timeframe;
+  
+  _CacheEntry(this.data, this.timestamp, this.timeframe);
+  
+  bool isValid() {
+    final now = DateTime.now();
+    // Cache validity periods based on timeframe
+    switch (timeframe) {
+      case '1d': return now.difference(timestamp).inMinutes < 5;  // 5 minutes
+      case '1w': return now.difference(timestamp).inHours < 1;    // 1 hour
+      case '2w': return now.difference(timestamp).inHours < 2;    // 2 hours
+      case '1m': return now.difference(timestamp).inHours < 6;    // 6 hours
+      default: return false;
+    }
+  }
+}
 
 class CurrencyService {
   static const String baseUrl = 'http://api.stellarpay.app/conversion';
@@ -53,37 +75,57 @@ class CurrencyService {
   // Add this static list to store the watchlist data
   static List<Map<String, dynamic>> watchlist = [];
 
-  Future<Map<String, double>> convertCurrency({
-    required String baseCurrency,
-    required double amount,
-    required List<String> targetCurrencies,
-  }) async {
+  // Add a static field to cache the default currency
+  static String? _cachedDefaultCurrency;
+
+  // Add cache for historical data
+  static final Map<String, _CacheEntry> _timeseriesCache = {};
+
+  Future<List<CurrencyConversion>> convertCurrency(
+      String baseCurrency, 
+      double amount, 
+      List<String> targetCurrencies
+  ) async {
     try {
       final queryParams = {
         'base': baseCurrency.toLowerCase(),
         'amount': amount.toString(),
-        'targets': targetCurrencies.map((e) => e.toLowerCase()).join(','),
+        'targets': targetCurrencies.join(',').toLowerCase(),
       };
 
-      final uri = Uri.parse('$baseUrl/convert').replace(queryParameters: queryParams);
+      final uri = Uri.http('api.stellarpay.app', '/conversion/convert', queryParams);
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['response']['status'] == 'success') {
-          return Map<String, double>.from(data['response']['body']);
-        }
+        final Map<String, dynamic> decodedResponse = json.decode(response.body);
+        
+        // Access the body array through the response object
+        final List<dynamic> conversions = decodedResponse['response']['body'];
+        
+        return conversions.map((conversion) => CurrencyConversion.fromJson(conversion)).toList();
+      } else {
+        throw Exception('Failed to convert currency');
       }
-      throw Exception('Failed to convert currency');
     } catch (e) {
       throw Exception('Error converting currency: $e');
     }
   }
 
-  // Get the user's default currency
+  // Modify getDefaultCurrency to cache the result
   static Future<String> getDefaultCurrency() async {
+    if (_cachedDefaultCurrency != null) {
+      return _cachedDefaultCurrency!;
+    }
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(DEFAULT_CURRENCY_KEY) ?? 'USD';
+    _cachedDefaultCurrency = prefs.getString(DEFAULT_CURRENCY_KEY) ?? 'USD';
+    return _cachedDefaultCurrency!;
+  }
+
+  // Add a method to update the cached default currency
+  static Future<void> setDefaultCurrency(String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(DEFAULT_CURRENCY_KEY, currency);
+    _cachedDefaultCurrency = currency;
   }
 
   // Add this helper method
@@ -97,65 +139,100 @@ class CurrencyService {
     }
   }
 
-  // Update getCurrencyData to use default currency
+  // Add a method to clear cached data
+  static void clearCache() {
+    _cachedDefaultCurrency = null;
+  }
+
+  // Modify loadWatchlist to include full currency data
+  static Future<List<Map<String, dynamic>>> loadWatchlist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final watchlistJson = prefs.getString(_watchlistKey);
+    
+    if (watchlistJson != null) {
+      try {
+        final List<dynamic> decoded = json.decode(watchlistJson);
+        watchlist = decoded.map((item) => Map<String, dynamic>.from(item)).toList();
+        
+        // Immediately fetch fresh data for each currency
+        final currencyService = CurrencyService();
+        final updatedWatchlist = await Future.wait(
+          watchlist.map((currency) async {
+            final freshData = await currencyService.getCurrencyData(currency['symbol']);
+            return {
+              ...currency,
+              ...freshData,
+            };
+          }),
+        );
+        
+        return updatedWatchlist;
+      } catch (e) {
+        print('Error loading watchlist: $e');
+      }
+    }
+    return [];
+  }
+
+  // Modify getCurrencyData to only fetch current price
   Future<Map<String, dynamic>> getCurrencyData(String symbol) async {
     final defaultCurrency = await getDefaultCurrency();
+    
     try {
-      print('Fetching data for $symbol in $defaultCurrency');
-
-      final uri = Uri.parse('$baseUrl/convert').replace(queryParameters: {
+      final queryParams = {
         'base': symbol.toLowerCase(),
         'amount': '1',
         'targets': defaultCurrency.toLowerCase(),
-      });
+      };
 
-      print('Request URL: $uri');
-
+      final uri = Uri.http('api.stellarpay.app', '/conversion/convert', queryParams);
       final response = await http.get(uri);
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['response']['status'] == 'success') {
-          final price = data['response']['body'][defaultCurrency.toUpperCase()];
-          
-          if (price == null) {
-            print('Price not available for $symbol, using mock data');
-            return _generateMockData(symbol);
+          final List<dynamic> conversions = data['response']['body'];
+          if (conversions.isNotEmpty) {
+            final conversion = conversions.first;
+            final price = double.parse(conversion['amount']);
+            final formattedPrice = '$defaultCurrency ${_formatNumber(price)}';
+            
+            return {
+              'name': symbol,
+              'symbol': symbol,
+              'price': formattedPrice,
+              'iconUrl': 'assets/crypto_icons/${symbol.toLowerCase()}.svg',
+              // Generate simple mock data for the mini chart
+              'chartData': _generateSimpleMockData(price),
+            };
           }
-
-          final random = Random();
-          final volatility = 0.02;
-          
-          double currentPrice = price;
-          final List<double> chartData = [];
-          
-          for (int i = 0; i < 24; i++) {
-            chartData.add(currentPrice);
-            final change = currentPrice * volatility * (random.nextDouble() - 0.5);
-            currentPrice += change;
-          }
-
-          final formattedPrice = '$defaultCurrency ${_formatNumber(price)}';
-          final changePercent = (random.nextDouble() * 10 * (random.nextBool() ? 1 : -1));
-          
-          return {
-            'name': symbol,
-            'symbol': symbol,
-            'price': formattedPrice,
-            'change': '${changePercent.toStringAsFixed(2)}%',
-            'iconUrl': 'assets/crypto_icons/${symbol.toLowerCase()}.svg',
-            'chartData': chartData,
-          };
         }
       }
-      print('Using mock data for $symbol due to API error');
-      return _generateMockData(symbol);
+      throw Exception('Failed to fetch currency data');
     } catch (e) {
       print('Error fetching data for $symbol: $e');
-      return _generateMockData(symbol);
+      return {
+        'name': symbol,
+        'symbol': symbol,
+        'price': 'Error',
+        'iconUrl': 'assets/crypto_icons/${symbol.toLowerCase()}.svg',
+        'chartData': <double>[],
+      };
     }
+  }
+
+  // Add a simple mock data generator for mini charts
+  List<double> _generateSimpleMockData(double currentPrice) {
+    final random = Random();
+    final List<double> data = [];
+    double price = currentPrice;
+    
+    for (int i = 0; i < 10; i++) {
+      data.add(price);
+      price += price * 0.001 * (random.nextDouble() - 0.5);
+    }
+    
+    return data;
   }
 
   // Add this helper method for mock data
@@ -185,58 +262,197 @@ class CurrencyService {
     return CurrencyService.supportedCurrencies;
   }
 
-  Future<List<double>> getHistoricalPrices(String symbol, String timeframe) async {
+  // Optimize timeseries data request
+  Future<List<double>> getTimeseriesData(String symbol, DateTime startDate, DateTime endDate, String targetCurrency) async {
     try {
-      // Mock data based on timeframe
-      final int points = timeframe == '1d' ? 24 : 
-                        timeframe == '1w' ? 7 * 24 : 
-                        timeframe == '1m' ? 30 : 
-                        timeframe == '6m' ? 180 : 
-                        timeframe == '1y' ? 365 : 
-                        timeframe == 'all' ? 1825 : 
-                        24;
+      // For longer periods, split into smaller chunks to avoid timeout
+      if (endDate.difference(startDate).inDays > 30) {
+        List<double> allData = [];
+        DateTime chunkStart = startDate;
+        
+        // Use smaller chunks (7 days) for more granular data
+        while (chunkStart.isBefore(endDate)) {
+          DateTime chunkEnd = chunkStart.add(Duration(days: 7));
+          if (chunkEnd.isAfter(endDate)) {
+            chunkEnd = endDate;
+          }
 
-      // Get the raw price data
-      final data = await getCurrencyData(symbol);
-      // Parse the price string by removing currency symbol and commas
-      final priceStr = data['price'].split(' ')[1].replaceAll(',', '');
-      final currentPrice = double.parse(priceStr);
-      
-      final random = Random();
-      final volatility = 0.02; // 2% price movement
-      
-      double price = currentPrice;
-      final List<double> prices = [];
-      
-      for (int i = points - 1; i >= 0; i--) {
-        prices.add(price);
-        // Random walk with drift
-        final change = price * volatility * (random.nextDouble() - 0.5);
-        price += change;
+          final queryParams = {
+            'baseCurrency': symbol.toLowerCase(),
+            'startDate': chunkStart.toIso8601String().split('T')[0],
+            'endDate': chunkEnd.toIso8601String().split('T')[0],
+            'targetCurrency': targetCurrency.toLowerCase(),
+          };
+
+          final uri = Uri.http('api.stellarpay.app', '/conversion/timeseries', queryParams);
+          
+          final response = await http.get(uri).timeout(
+            Duration(seconds: 20),
+            onTimeout: () {
+              print('Chunk request timed out, retrying...');
+              return http.get(uri).timeout(
+                Duration(seconds: 30),
+                onTimeout: () => throw Exception('Request timed out after retry'),
+              );
+            },
+          );
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['response']['status'] == 'success') {
+              final List<dynamic> rates = data['response']['body'];
+              allData.addAll(rates.map((rate) => double.parse(rate['rate'])));
+            }
+          }
+
+          // Shorter delay between chunks
+          await Future.delayed(Duration(milliseconds: 200));
+          chunkStart = chunkEnd;  // Remove the +1 day to get continuous data
+        }
+
+        if (allData.isNotEmpty) {
+          // Don't reduce the data points, keep all of them
+          return allData;
+        }
+        throw Exception('Failed to fetch timeseries data');
+      } else {
+        // For shorter periods, get all available data points
+        final queryParams = {
+          'baseCurrency': symbol.toLowerCase(),
+          'startDate': startDate.toIso8601String().split('T')[0],
+          'endDate': endDate.toIso8601String().split('T')[0],
+          'targetCurrency': targetCurrency.toLowerCase(),
+        };
+
+        final uri = Uri.http('api.stellarpay.app', '/conversion/timeseries', queryParams);
+        
+        final response = await http.get(uri).timeout(
+          Duration(seconds: 10),
+          onTimeout: () => throw Exception('Request timed out'),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['response']['status'] == 'success') {
+            final List<dynamic> rates = data['response']['body'];
+            return rates.map((rate) => double.parse(rate['rate'])).toList();
+          }
+        }
+        throw Exception('Failed to fetch timeseries data');
       }
-
-      return prices.reversed.toList(); // Return prices in chronological order
     } catch (e) {
-      print('Error getting historical prices: $e');
-      throw e;
+      print('Error fetching timeseries data: $e');
+      rethrow;
     }
   }
 
-  // Modify loadWatchlist to return the list instead of modifying a global variable
-  static Future<List<Map<String, dynamic>>> loadWatchlist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final watchlistJson = prefs.getString(_watchlistKey);
+  // Add this helper method to reduce data points
+  List<double> _reduceDataPoints(List<double> data, int targetPoints) {
+    if (data.length <= targetPoints) return data;
     
-    if (watchlistJson != null) {
-      try {
-        final List<dynamic> decoded = json.decode(watchlistJson);
-        watchlist = decoded.map((item) => Map<String, dynamic>.from(item)).toList();
-        return watchlist;
-      } catch (e) {
-        print('Error loading watchlist: $e');
+    final step = data.length ~/ targetPoints;
+    final reduced = <double>[];
+    
+    for (int i = 0; i < data.length; i += step) {
+      // Take average of points in this step to smooth the data
+      final chunk = data.sublist(i, (i + step).clamp(0, data.length));
+      final avg = chunk.reduce((a, b) => a + b) / chunk.length;
+      reduced.add(avg);
+    }
+    
+    return reduced;
+  }
+
+  Future<List<double>> getHistoricalPrices(String symbol, String timeframe) async {
+    final cacheKey = '${symbol}_${timeframe}';
+    final now = DateTime.now();
+    
+    // Check cache first for the requested timeframe
+    final cachedData = _timeseriesCache[cacheKey];
+    if (cachedData != null && cachedData.isValid()) {
+      print('Using cached data for $symbol $timeframe');
+      return cachedData.data;
+    }
+
+    // Check if we have data from a longer timeframe that we can reuse
+    if (timeframe == '2w') {
+      final monthData = _timeseriesCache['${symbol}_1m'];
+      if (monthData != null && monthData.isValid()) {
+        print('Reusing 1m data for 2w view');
+        final twoWeeksData = monthData.data.sublist(max(0, monthData.data.length - 14));
+        _timeseriesCache[cacheKey] = _CacheEntry(twoWeeksData, now, timeframe);
+        return twoWeeksData;
       }
     }
-    return [];
+
+    DateTime startDate;
+    
+    switch (timeframe) {
+      case '1d':
+        final currentPrice = await _getCurrentPrice(symbol);
+        final data = _generateHourlyPrices(currentPrice, 24);
+        _timeseriesCache[cacheKey] = _CacheEntry(data, now, timeframe);
+        return data;
+      case '1w':
+        startDate = now.subtract(Duration(days: 7));
+        break;
+      case '2w':
+        startDate = now.subtract(Duration(days: 14));
+        break;
+      case '1m':
+        startDate = now.subtract(Duration(days: 30));
+        break;
+      default:
+        startDate = now.subtract(Duration(days: 1));
+    }
+
+    try {
+      final defaultCurrency = await getDefaultCurrency();
+      final data = await getTimeseriesData(symbol, startDate, now, defaultCurrency);
+      
+      // Cache the data
+      _timeseriesCache[cacheKey] = _CacheEntry(data, now, timeframe);
+
+      // If we fetched a month of data, also cache 2w view
+      if (timeframe == '1m') {
+        final twoWeeksData = data.sublist(max(0, data.length - 14));
+        _timeseriesCache['${symbol}_2w'] = _CacheEntry(twoWeeksData, now, '2w');
+      }
+
+      return data;
+    } catch (e) {
+      print('Error fetching historical data: $e');
+      if (cachedData != null) {
+        print('Using expired cache data as fallback');
+        return cachedData.data;
+      }
+      rethrow;
+    }
+  }
+
+  // Helper method to get current price
+  Future<double> _getCurrentPrice(String symbol) async {
+    final defaultCurrency = await getDefaultCurrency();
+    final data = await getCurrencyData(symbol);
+    final priceStr = data['price'].split(' ')[1].replaceAll(',', '');
+    return double.parse(priceStr);
+  }
+
+  // Generate hourly prices for 1-day view
+  List<double> _generateHourlyPrices(double currentPrice, int hours) {
+    final random = Random();
+    final List<double> prices = [];
+    double price = currentPrice;
+    
+    // Generate prices going backwards from current price
+    for (int i = 0; i < hours; i++) {
+      prices.add(price);
+      // Smaller volatility for more realistic hourly changes
+      final change = price * 0.001 * (random.nextDouble() - 0.45); // Slight downward bias
+      price -= change;
+    }
+    
+    return prices.reversed.toList(); // Return in chronological order
   }
 
   // Save watchlist to storage

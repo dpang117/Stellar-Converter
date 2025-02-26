@@ -4,6 +4,7 @@ import 'home.dart'; // ✅ Import HomeScreen for navigation
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/currency_service.dart';
 import 'package:flutter/services.dart';
+import '../widgets/navigator.dart';  // Add this import
 
 class DefaultCurrency extends StatefulWidget {
   @override
@@ -26,14 +27,6 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
     });
   }
 
-  Future<void> _saveAndUpdateCurrency() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(CurrencyService.DEFAULT_CURRENCY_KEY, selectedCurrency);
-    
-    // Pop back to previous screen with both the new currency and loading state
-    Navigator.pop(context, selectedCurrency);
-  }
-
   void _showCurrencyPicker() async {
     final selected = await showModalBottomSheet<String>(
       context: context,
@@ -48,6 +41,13 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
       setState(() {
         selectedCurrency = selected;
       });
+    }
+  }
+
+  Future<void> _updateDefaultCurrency(String currency) async {
+    await CurrencyService.setDefaultCurrency(currency);
+    if (context.mounted) {
+      Navigator.pop(context, currency); // Just return the currency string
     }
   }
 
@@ -133,7 +133,7 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
 
               // **Confirm Button (Returns to HomeScreen)**
               ElevatedButton(
-                onPressed: _saveAndUpdateCurrency,
+                onPressed: () => _updateDefaultCurrency(selectedCurrency),
                 child: const Text("Confirm"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 0, 0, 0),

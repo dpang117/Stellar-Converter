@@ -7,8 +7,6 @@ class CurrencyDetailScreen extends StatefulWidget {
   final String symbol;
   final String name;
   final String initialPrice;
-  final String initialChange;
-  final bool isPositive;
   final List<double> initialChartData;
 
   const CurrencyDetailScreen({
@@ -16,8 +14,6 @@ class CurrencyDetailScreen extends StatefulWidget {
     required this.symbol,
     required this.name,
     required this.initialPrice,
-    required this.initialChange,
-    required this.isPositive,
     required this.initialChartData,
   }) : super(key: key);
 
@@ -29,11 +25,13 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
   String selectedTimeframe = '1d';
   late List<double> chartData;
   late String currentPrice;
-  late String priceChange;
   bool isLoading = false;
   late String defaultCurrency;
+  
+  // Add this to track the latest requested timeframe
+  String? _pendingTimeframe;
 
-  final List<String> timeframes = ['1d', '1w', '1m', '6m', '1y', 'all'];
+  final List<String> timeframes = ['1d', '1w', '2w', '1m'];
 
   @override
   void initState() {
@@ -41,7 +39,6 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
     _loadDefaultCurrency();
     chartData = widget.initialChartData;
     currentPrice = widget.initialPrice;
-    priceChange = widget.initialChange;
     _loadChartData(selectedTimeframe);
   }
 
@@ -53,28 +50,46 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
   }
 
   Future<void> _loadChartData(String timeframe) async {
+    if (!mounted) return;
+    
+    // Store the requested timeframe
+    _pendingTimeframe = timeframe;
+    
     setState(() {
       isLoading = true;
     });
 
     try {
       final newData = await CurrencyService().getHistoricalPrices(
-        widget.symbol, 
+        widget.symbol,
         timeframe
       );
 
-      setState(() {
-        chartData = newData;
-        selectedTimeframe = timeframe;
-      });
+      if (!mounted) return;
+
+      // Only update if this is still the latest requested timeframe
+      if (_pendingTimeframe == timeframe) {
+        setState(() {
+          chartData = newData;
+          selectedTimeframe = timeframe;
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load chart data: $e')),
-      );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (!mounted) return;
+
+      // Only show error if this is still the latest requested timeframe
+      if (_pendingTimeframe == timeframe) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load chart data. Please try again later.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -118,6 +133,22 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
 
   // Update chart container to match the design
   Widget _buildChartWithLabels() {
+    if (isLoading) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+        height: 280,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
     // Calculate price points for labels based on chart data
     final max = chartData.reduce((a, b) => a > b ? a : b);
     final min = chartData.reduce((a, b) => a < b ? a : b);
@@ -179,14 +210,10 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
         return '1D';
       case '1w':
         return '1W';
+      case '2w':
+        return '2W';
       case '1m':
         return '1M';
-      case '6m':
-        return '6M';
-      case '1y':
-        return '1Y';
-      case 'all':
-        return 'ALL';
       default:
         return timeframe;
     }
@@ -252,14 +279,6 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  priceChange,
-                  style: TextStyle(
-                    color: widget.isPositive ? Colors.green : Colors.red,
-                    fontSize: 16,
-                  ),
-                ),
               ],
             ),
           ),
@@ -297,6 +316,12 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Cancel any timers or subscriptions here if you have any
+    super.dispose();
   }
 }
 

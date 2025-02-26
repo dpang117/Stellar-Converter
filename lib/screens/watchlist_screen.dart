@@ -11,16 +11,19 @@ class WatchlistScreen extends StatefulWidget {
 }
 
 class _WatchlistScreenState extends State<WatchlistScreen> {
-  final List<String> watchlist = [];
-  final CurrencyService _currencyService = CurrencyService();
-  final Map<String, PriceData> priceData = {};
+  final _currencyService = CurrencyService();
+  List<Map<String, dynamic>> watchlist = [];
+  bool isLoading = true;
   Timer? _refreshTimer;
-  bool showCrypto = true;
 
   @override
   void initState() {
     super.initState();
-    _startPriceUpdates();
+    _initializeData();
+    // Set up periodic refresh
+    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
+      _refreshWatchlistData();
+    });
   }
 
   @override
@@ -29,24 +32,81 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     super.dispose();
   }
 
-  void _startPriceUpdates() {
-    _updatePrices();
-    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
-      _updatePrices();
+  Future<void> _initializeData() async {
+    try {
+      // Clear any cached data
+      CurrencyService.clearCache();
+      
+      // Load watchlist with fresh data
+      final freshWatchlist = await CurrencyService.loadWatchlist();
+      
+      if (mounted) {
+        setState(() {
+          watchlist = freshWatchlist;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error initializing data: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadWatchlist() async {
+    if (!mounted) return;
+    
+    final loadedWatchlist = await CurrencyService.loadWatchlist();
+    setState(() {
+      watchlist = loadedWatchlist;
     });
   }
 
-  Future<void> _updatePrices() async {
-    for (final currency in watchlist) {
-      try {
-        final data = await _currencyService.getCurrencyData(currency);
+  Future<void> _refreshWatchlistData() async {
+    if (!mounted || watchlist.isEmpty) return;
+    
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Get the default currency once for all requests
+      final defaultCurrency = await CurrencyService.getDefaultCurrency();
+      print('Refreshing watchlist with default currency: $defaultCurrency');
+
+      final updatedWatchlist = await Future.wait(
+        watchlist.map((currency) async {
+          final updatedData = await _currencyService.getCurrencyData(currency['symbol']);
+          print('Updated data for ${currency['symbol']}: $updatedData');
+          return {
+            ...currency,
+            ...updatedData,
+          };
+        }),
+      );
+
+      if (mounted) {
         setState(() {
-          priceData[currency] = PriceData.fromJson(data);
+          watchlist = updatedWatchlist;
+          isLoading = false;
         });
-      } catch (e) {
-        print('Error fetching price for $currency: $e');
+      }
+    } catch (e) {
+      print('Error refreshing watchlist: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
       }
     }
+  }
+
+  // Add a method to handle currency changes
+  void onDefaultCurrencyChanged() {
+    _refreshWatchlistData();
   }
 
   void _addCurrency() async {
@@ -55,15 +115,23 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => CurrencyListScreen(
-        mode: showCrypto ? "Crypto" : "Fiat",
+        mode: watchlist.isNotEmpty
+            ? watchlist[0]['isCrypto']
+                ? "Crypto"
+                : "Fiat"
+            : "Crypto",
       ),
     );
-    
-    if (selected != null && !watchlist.contains(selected)) {
+
+    if (selected != null &&
+        !watchlist.any((currency) => currency['symbol'] == selected)) {
       setState(() {
-        watchlist.add(selected);
+        watchlist.add({
+          'symbol': selected,
+          'isCrypto': CurrencyService.cryptoCurrencies.contains(selected)
+        });
       });
-      _updatePrices();
+      _refreshWatchlistData();
     }
   }
 
@@ -94,18 +162,27 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
             child: Row(
               children: [
                 TextButton(
-                  onPressed: () => setState(() => showCrypto = false),
-                  child: Text('Fiat',
+                  onPressed: () => setState(() => watchlist
+                      .forEach((currency) => currency['isCrypto'] = false)),
+                  child: Text(
+                    'Fiat',
                     style: TextStyle(
-                      color: !showCrypto ? Colors.blue : Colors.grey,
+                      color:
+                          watchlist.every((currency) => !currency['isCrypto'])
+                              ? Colors.blue
+                              : Colors.grey,
                     ),
                   ),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => showCrypto = true),
-                  child: Text('Crypto',
+                  onPressed: () => setState(() => watchlist
+                      .forEach((currency) => currency['isCrypto'] = true)),
+                  child: Text(
+                    'Crypto',
                     style: TextStyle(
-                      color: showCrypto ? Colors.blue : Colors.grey,
+                      color: watchlist.every((currency) => currency['isCrypto'])
+                          ? Colors.blue
+                          : Colors.grey,
                     ),
                   ),
                 ),
@@ -119,7 +196,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
             child: ElevatedButton.icon(
               onPressed: _addCurrency,
               icon: Icon(Icons.add),
-              label: Text('Add ${showCrypto ? "coin" : "currency"}'),
+              label: Text(
+                  'Add ${watchlist.isNotEmpty ? (watchlist[0]['isCrypto'] ? "coin" : "currency") : "coin"}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -132,33 +210,31 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
           // Watchlist
           Expanded(
-            child: ListView.builder(
-              itemCount: watchlist.length,
-              itemBuilder: (context, index) {
-                final currency = watchlist[index];
-                final data = priceData[currency];
-                if (data == null) return SizedBox.shrink();
-                
-                final isCrypto = CurrencyService.cryptoCurrencies.contains(currency);
-                if (showCrypto != isCrypto) return SizedBox.shrink();
-                
-                return CurrencyCard(
-                  name: data.name,
-                  symbol: currency,
-                  price: data.price,
-                  change: data.change,
-                  iconUrl: data.iconUrl,
-                  isPositive: data.isPositive,
-                  chartData: data.chartData,
-                  onRemove: () {
-                    setState(() {
-                      watchlist.remove(currency);
-                      priceData.remove(currency);
-                    });
-                  },
-                );
-              },
-            ),
+            child: isLoading
+                ? CircularProgressIndicator()
+                : ListView.builder(
+                    itemCount: watchlist.length,
+                    itemBuilder: (context, index) {
+                      final currency = watchlist[index];
+                      if (!currency['isCrypto'] &&
+                          !watchlist.every((c) => c['isCrypto']))
+                        return SizedBox.shrink();
+
+                      return CurrencyCard(
+                        name: currency['name'],
+                        symbol: currency['symbol'],
+                        price: currency['price'],
+                        iconUrl: currency['iconUrl'],
+                        chartData: (currency['chartData'] as List?)?.cast<double>() ?? [],
+                        onRemove: () {
+                          setState(() {
+                            watchlist.removeAt(index);
+                          });
+                          _refreshWatchlistData();
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),

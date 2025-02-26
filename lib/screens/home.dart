@@ -167,9 +167,7 @@ class HomeScreenState extends State<HomeScreen> {
           symbol: currency["symbol"],
           name: currency["name"],
           initialPrice: currency["price"],
-          initialChange: currency["change"],
-          isPositive: !currency["change"].startsWith("-"),
-          initialChartData: List<double>.from(currency["chartData"] ?? []),
+          initialChartData: const [], // Empty list since we're not using charts in cards anymore
         ),
       ),
     );
@@ -332,9 +330,7 @@ class HomeScreenState extends State<HomeScreen> {
                     name: currency["name"],
                     symbol: currency["symbol"],
                     price: currency["price"],
-                    change: currency["change"],
                     iconUrl: currency["iconUrl"],
-                    isPositive: !currency["change"].startsWith("-"),
                     chartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
                   ),
                 );

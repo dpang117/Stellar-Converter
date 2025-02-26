@@ -8,10 +8,14 @@ import 'widgets/navigator.dart';
 import 'screens/home.dart';
 import 'screens/stellarpay_invite.dart';
 import 'screens/startup.dart';
+import 'services/currency_service.dart';
 
-void main() {
+void main() async {
   // Ensure Flutter is fully initialized before applying UI changes
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Pre-load the default currency
+  await CurrencyService.getDefaultCurrency();
 
   // Set status bar icons to black (for light backgrounds)
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(

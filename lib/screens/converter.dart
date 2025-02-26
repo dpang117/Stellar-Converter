@@ -68,16 +68,20 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     if (inputAmount.isEmpty) return;
 
     try {
-      final result = await _currencyService.convertCurrency(
-        baseCurrency: selectedCurrencyFrom,
-        amount: double.parse(inputAmount),
-        targetCurrencies: [selectedCurrencyTo],
+      final conversions = await _currencyService.convertCurrency(
+        selectedCurrencyFrom,
+        double.parse(inputAmount),
+        [selectedCurrencyTo],
       );
       
       setState(() {
-        // Format the number when displaying
-        final value = result[selectedCurrencyTo];
-        convertedAmount = value != null ? _formatNumber(value) : 'Error';
+        if (conversions.isNotEmpty) {
+          // Get the first (and only) conversion result
+          final conversion = conversions.first;
+          convertedAmount = _formatNumber(double.parse(conversion.amount));
+        } else {
+          convertedAmount = 'Error';
+        }
       });
     } catch (e) {
       setState(() {
