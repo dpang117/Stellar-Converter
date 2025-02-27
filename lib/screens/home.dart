@@ -57,17 +57,9 @@ class HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _startPriceUpdates() {
-    // Update prices immediately
-    _updatePrices();
-    
-    // Then update every 30 seconds
-    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
-      _updatePrices();
-    });
-  }
-
   Future<void> _updatePrices() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -86,7 +78,9 @@ class HomeScreenState extends State<HomeScreen> {
       // Wait for all updates to complete
       final results = await Future.wait(futures);
 
-      // Update state once with all new data
+      // Check mounted again before updating state
+      if (!mounted) return;
+
       setState(() {
         for (int i = 0; i < results.length; i++) {
           if (results[i] != null) {
@@ -98,12 +92,29 @@ class HomeScreenState extends State<HomeScreen> {
             }
           }
         }
+        _isLoading = false;
       });
-    } finally {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     }
+  }
+
+  void _startPriceUpdates() {
+    // Cancel any existing timer
+    _refreshTimer?.cancel();
+    
+    // Update prices immediately
+    _updatePrices();
+    
+    // Then update every 30 seconds
+    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
+      if (mounted) {
+        _updatePrices();
+      }
+    });
   }
 
   void _addCurrency() async {

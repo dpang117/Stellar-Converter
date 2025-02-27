@@ -26,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _birthDateController = TextEditingController();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
+  final FocusNode _countryFocus = FocusNode();
+  final FocusNode _birthDateFocus = FocusNode();
   late bool _isLogin;
   bool _isLoading = false;
   bool _obscurePassword = true; // For password visibility toggle
@@ -59,6 +61,8 @@ class _LoginScreenState extends State<LoginScreen> {
     _birthDateController.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
+    _countryFocus.dispose();
+    _birthDateFocus.dispose();
     super.dispose();
   }
 
@@ -180,12 +184,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 11),
                 buildInputField('Phone Number', _phoneController),
                 const SizedBox(height: 11),
-                buildInputField('Country', _countryController),
+                _buildCountryField(),
                 const SizedBox(height: 11),
                 buildInputField(
                   'Birth Date (DD/MM/YYYY)',
                   _birthDateController,
                   keyboardType: TextInputType.datetime,
+                  focusNode: _birthDateFocus,
                 ),
               ],
               const SizedBox(height: 30),
@@ -330,14 +335,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _isValidEmail(_emailController.text) &&
         _isValidPassword(_passwordController.text) &&
         _isValidPhoneNumber(_phoneController.text) &&
-        _isValidBirthDate(_birthDateController.text) &&
-        _isValidCountry(_countryController.text);
+        _isValidBirthDate(_birthDateController.text);
   }
 
   Future<void> _handleSubmit() async {
     setState(() {
       _isLoading = true;
-      _hasLoginError = false;  // Reset error state on new attempt
+      _hasLoginError = false;
     });
 
     try {
@@ -349,34 +353,40 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         
         if (success && mounted) {
+          // Route directly to HomeScreen after login
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => DefaultCurrency()),
+            MaterialPageRoute(builder: (context) => HomeScreen()),
           );
         }
       } else {
-        success = await AuthService.register(
-          RegisterRequest(
-            email: _emailController.text,
-            username: _usernameController.text,
-            password: _passwordController.text,
-            phoneNumber: _phoneController.text,
-            country: _countryController.text,
-            birthDate: _birthDateController.text,
-          ),
+        // For signup, store the registration data but don't send it yet
+        final registrationData = RegisterRequest(
+          email: _emailController.text,
+          username: _usernameController.text,
+          password: _passwordController.text,
+          phoneNumber: _phoneController.text,
+          country: _countryController.text,
+          birthDate: _birthDateController.text,
         );
-      }
-
-      if (success && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => DefaultCurrency()),
-        );
+        
+        // Navigate to DefaultCurrency screen with registration data
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DefaultCurrency(
+                registrationData: registrationData,
+                isSignUp: true,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _hasLoginError = _isLogin;  // Only show error for login attempts
+          _hasLoginError = _isLogin;
         });
       }
     } finally {
@@ -503,21 +513,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 keyboardType: keyboardType,
                 textInputAction:
                     nextFocus != null ? TextInputAction.next : TextInputAction.done,
-                onChanged: onChanged,
+                onChanged: (value) {
+                  if (onChanged != null) onChanged(value);
+                  setState(() {}); // Trigger rebuild to update submit button state
+                },
                 onSubmitted: (_) {
-                  setState(() {
-                    _fieldsTouched[label] = true;
-                  });
                   if (nextFocus != null) {
                     FocusScope.of(context).requestFocus(nextFocus);
-                  } else {
+                  } else if (_isValidSignUpForm()) { // Only submit if form is valid
                     _handleSubmit();
                   }
-                },
-                onEditingComplete: () {
-                  setState(() {
-                    _fieldsTouched[label] = true;
-                  });
                 },
               ),
             ),
@@ -560,5 +565,64 @@ class _LoginScreenState extends State<LoginScreen> {
       default:
         return null;
     }
+  }
+
+  // Add a method to handle country selection
+  void _selectCountry() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CurrencyListScreen(
+        mode: "Fiat",
+        isCountrySelect: true,  // Set this to true for country selection
+      ),
+    );
+    
+    if (selected != null) {
+      final currencyToCountry = {
+        'USD': 'United States',
+        'EUR': 'European Union',
+        'GBP': 'United Kingdom',
+        'JPY': 'Japan',
+        'CAD': 'Canada',
+        'AUD': 'Australia',
+        'CHF': 'Switzerland',
+        'CNY': 'China',
+        'HKD': 'Hong Kong',
+        'NZD': 'New Zealand',
+        'SGD': 'Singapore',
+        'INR': 'India',
+        'BRL': 'Brazil',
+        'RUB': 'Russia',
+        'ZAR': 'South Africa',
+        'AED': 'United Arab Emirates',
+        'TWD': 'Taiwan',
+        'KRW': 'South Korea',
+        'MXN': 'Mexico',
+        'SAR': 'Saudi Arabia',
+        'THB': 'Thailand',
+        // Add more mappings as needed
+      };
+      
+      setState(() {
+        _countryController.text = currencyToCountry[selected] ?? selected;
+        _fieldsTouched['Country'] = true;
+      });
+    }
+  }
+
+  Widget _buildCountryField() {
+    return GestureDetector(
+      onTap: _selectCountry,
+      child: AbsorbPointer(
+        child: buildInputField(
+          'Country',
+          _countryController,
+          focusNode: _countryFocus,
+          nextFocus: _birthDateFocus,
+        ),
+      ),
+    );
   }
 }

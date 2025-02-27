@@ -5,10 +5,12 @@ import '../widgets/currency_icon.dart';
 
 class CurrencyListScreen extends StatefulWidget {
   final String? mode;
+  final bool isCountrySelect;
 
   const CurrencyListScreen({
     Key? key,
     this.mode,
+    this.isCountrySelect = false,
   }) : super(key: key);
 
   @override
@@ -21,69 +23,6 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
   List<String> filteredCurrencies = [];
   final TextEditingController _searchController = TextEditingController();
 
-  // Map of fiat currency codes to their flag emojis
-  final Map<String, String> fiatFlags = {
-    'USD': '🇺🇸',
-    'EUR': '🇪🇺',
-    'GBP': '🇬🇧',
-    'JPY': '🇯🇵',
-    'CAD': '🇨🇦',
-    'AUD': '🇦🇺',
-    'CHF': '🇨🇭',
-    'CNY': '🇨🇳',
-    'HKD': '🇭🇰',
-    'NZD': '🇳🇿',
-    'SGD': '🇸🇬',
-    'ZAR': '🇿🇦',
-    'INR': '🇮🇳',
-    'BRL': '🇧🇷',
-    'RUB': '🇷🇺',
-    'AED': '🇦🇪',
-    'TWD': '🇹🇼',
-    'KRW': '🇰🇷',
-    'MXN': '🇲🇽',
-    'SAR': '🇸🇦',
-    'PLN': '🇵🇱',
-    'DKK': '🇩🇰',
-    'SEK': '🇸🇪',
-    'NOK': '🇳🇴',
-    'THB': '🇹🇭',
-    'ILS': '🇮🇱',
-    'QAR': '🇶🇦',
-    'KWD': '🇰🇼',
-    'PHP': '🇵🇭',
-    'TRY': '🇹🇷',
-    'CZK': '🇨🇿',
-    'IDR': '🇮🇩',
-    'MYR': '🇲🇾',
-    'HUF': '🇭🇺',
-    'VND': '🇻🇳',
-    'ISK': '🇮🇸',
-    'RON': '🇷🇴',
-    'HRK': '🇭🇷',
-    'BGN': '🇧🇬',
-    'UAH': '🇺🇦',
-    'UYU': '🇺🇾',
-    'ARS': '🇦🇷',
-    'COP': '🇨🇴',
-    'CLP': '🇨🇱',
-    'PEN': '🇵🇪',
-    'MAD': '🇲🇦',
-    'NGN': '🇳🇬',
-    'KES': '🇰🇪',
-    'DZD': '🇩🇿',
-    'EGP': '🇪🇬',
-    'BDT': '🇧🇩',
-    'PKR': '🇵🇰',
-    'VEF': '🇻🇪',
-    'IRR': '🇮🇷',
-    'JOD': '🇯🇴',
-    'NPR': '🇳🇵',
-    'LKR': '🇱🇰',
-    'OMR': '🇴🇲',
-    'MMK': '🇲🇲',
-    'BHD': '🇧🇭',
-  };
 
   // Add stablecoins set
   static const Set<String> stablecoins = {
@@ -99,6 +38,70 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
     'HUF', 'VND', 'ISK', 'RON', 'HRK', 'BGN', 'UAH', 'UYU', 'ARS', 'COP', 'CLP',
     'PEN', 'MAD', 'NGN', 'KES', 'DZD', 'EGP', 'BDT', 'PKR', 'VEF', 'IRR', 'JOD',
     'NPR', 'LKR', 'OMR', 'MMK', 'BHD'
+  };
+
+  // Update the currencyToCountry map with full names
+  final Map<String, String> currencyToCountry = {
+    'USD': 'United States of America',
+    'EUR': 'European Union',
+    'GBP': 'United Kingdom',
+    'JPY': 'Japan',
+    'CAD': 'Canada',
+    'AUD': 'Australia',
+    'CHF': 'Switzerland',
+    'CNY': 'People\'s Republic of China',
+    'HKD': 'Hong Kong',
+    'NZD': 'New Zealand',
+    'SGD': 'Singapore',
+    'ZAR': 'South Africa',
+    'INR': 'India',
+    'BRL': 'Brazil',
+    'RUB': 'Russia',
+    'AED': 'United Arab Emirates',
+    'TWD': 'Taiwan',
+    'KRW': 'South Korea',
+    'MXN': 'Mexico',
+    'SAR': 'Saudi Arabia',
+    'PLN': 'Poland',
+    'DKK': 'Denmark',
+    'SEK': 'Sweden',
+    'NOK': 'Norway',
+    'THB': 'Thailand',
+    'ILS': 'Israel',
+    'QAR': 'Qatar',
+    'KWD': 'Kuwait',
+    'PHP': 'Philippines',
+    'TRY': 'Turkey',
+    'CZK': 'Czech Republic',
+    'IDR': 'Indonesia',
+    'MYR': 'Malaysia',
+    'HUF': 'Hungary',
+    'VND': 'Vietnam',
+    'ISK': 'Iceland',
+    'RON': 'Romania',
+    'HRK': 'Croatia',
+    'BGN': 'Bulgaria',
+    'UAH': 'Ukraine',
+    'UYU': 'Uruguay',
+    'ARS': 'Argentina',
+    'COP': 'Colombia',
+    'CLP': 'Chile',
+    'PEN': 'Peru',
+    'MAD': 'Morocco',
+    'NGN': 'Nigeria',
+    'KES': 'Kenya',
+    'DZD': 'Algeria',
+    'EGP': 'Egypt',
+    'BDT': 'Bangladesh',
+    'PKR': 'Pakistan',
+    'VEF': 'Venezuela',
+    'IRR': 'Iran',
+    'JOD': 'Jordan',
+    'NPR': 'Nepal',
+    'LKR': 'Sri Lanka',
+    'OMR': 'Oman',
+    'MMK': 'Myanmar',
+    'BHD': 'Bahrain'
   };
 
   @override
@@ -132,10 +135,16 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
       if (query.isEmpty) {
         filteredCurrencies = List.from(currencies);
       } else {
-        filteredCurrencies = currencies
-            .where((currency) =>
-                currency.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+        filteredCurrencies = currencies.where((currency) {
+          // Check if currency code matches
+          final currencyMatches = currency.toLowerCase().contains(query.toLowerCase());
+          
+          // Check if country name matches (for fiat currencies)
+          final countryName = currencyToCountry[currency]?.toLowerCase() ?? '';
+          final countryMatches = countryName.contains(query.toLowerCase());
+          
+          return currencyMatches || countryMatches;
+        }).toList();
       }
     });
   }
@@ -201,8 +210,14 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
                   itemBuilder: (context, index) {
                     final currency = filteredCurrencies[index];
                     return ListTile(
-                      leading: CurrencyIcon(symbol: currency),
-                      title: Text(currency),
+                      leading: widget.isCountrySelect 
+                        ? CurrencyIcon(symbol: currency)  // Use CurrencyIcon instead of emoji
+                        : CurrencyIcon(symbol: currency),
+                      title: Text(
+                        widget.isCountrySelect 
+                          ? (currencyToCountry[currency] ?? currency)  // Show full country name
+                          : currency
+                      ),
                       onTap: () => Navigator.pop(context, currency),
                     );
                   },
