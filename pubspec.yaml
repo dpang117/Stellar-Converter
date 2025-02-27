@@ -70,3 +70,12 @@ flutter:
 
   assets:
     - assets/crypto_icons/
+    - assets/images/
+    - assets/images/google_icon.svg
+    - assets/images/apple_icon.svg
+    - assets/walkthrough/walkthrough_1.svg
+    - assets/walkthrough/walkthrough_2.svg
+    - assets/walkthrough/walkthrough_3.svg
+    - assets/walkthrough/walkthrough_4.svg
+    - assets/walkthrough/walkthrough_5.svg
+    - assets/walkthrough/walkthrough_6.svg

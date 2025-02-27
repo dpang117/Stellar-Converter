@@ -7,6 +7,9 @@ import 'currency_list.dart';
 import '../services/currency_service.dart';
 import 'dart:async';
 import '../screens/currency_detail.dart';
+import '../screens/settings_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'stellarpay_invite.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -205,22 +208,77 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
         leading: IconButton(
           icon: Icon(Icons.settings, size: 26, color: Colors.black),
-          onPressed: openDefaultCurrency,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SettingsScreen()),
+            );
+          },
         ),
+        title: Text('Home', style: Theme.of(context).textTheme.titleLarge),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Color(0xFF0156FE),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Center(
+                child: Text(
+                  'S',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => StellarPayInvite(),
+              );
+            },
+          ),
+        ],
         backgroundColor: Colors.white,
         elevation: 0,
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          searchField(),
-          FiatCryptoToggle(),
-          addCurrencyOrCoinButton(), // ✅ Now appears for both Crypto & Fiat
-          Expanded(child: currencyListView()),
+          // Top section with search and toggle
+          Container(
+            color: Colors.white,
+            child: Column(
+              children: [
+                searchField(),
+                FiatCryptoToggle(),
+                addCurrencyOrCoinButton(),
+              ],
+            ),
+          ),
+          
+          // List view section
+          Expanded(
+            child: Container(
+              color: Colors.white,
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: currencyListView(),
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBarWidget(
@@ -233,50 +291,58 @@ class HomeScreenState extends State<HomeScreen> {
   /// **Fiat-Crypto Toggle**
   Padding FiatCryptoToggle() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(100),
-        child: CupertinoSegmentedControl<String>(
-          padding: EdgeInsets.all(6),
-          groupValue: selectedCurrencyMode,
-          borderColor: Colors.grey.shade300,
-          selectedColor: Colors.black,
-          unselectedColor: Colors.white,
-          pressedColor: Colors.grey.shade200,
-          children: {
-            'Fiat': _buildSegment("Fiat"),
-            'Crypto': _buildSegment("Crypto"),
-          },
-          onValueChanged: (value) {
-            setState(() {
-              selectedCurrencyMode = value;
-            });
-          },
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: 200,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: CupertinoSegmentedControl<String>(
+            padding: EdgeInsets.zero,
+            groupValue: selectedCurrencyMode,
+            borderColor: Colors.transparent,  // Remove rounded borders
+            selectedColor: Colors.black,
+            unselectedColor: Colors.white,
+            pressedColor: Colors.grey.shade200,
+            children: {
+              'Fiat': _buildSegment("Fiat"),
+              'Crypto': _buildSegment("Crypto"),
+            },
+            onValueChanged: (value) {
+              setState(() {
+                selectedCurrencyMode = value;
+              });
+            },
+          ),
         ),
       ),
     );
   }
 
-  /// **Disabled "Add Currency / Add Coin" Button**
+  /// **Add Currency / Add Coin Button**
   Widget addCurrencyOrCoinButton() {
-    String buttonText =
-        selectedCurrencyMode == "Fiat" ? "Add currency" : "Add coin";
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 10),
-      child: ElevatedButton.icon(
-        onPressed: _addCurrency,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
+    String buttonText = selectedCurrencyMode == "Fiat" ? "Add currency" : "Add coin";
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 10, bottom: 10),
+        child: ElevatedButton.icon(
+          onPressed: _addCurrency,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        icon: Icon(Icons.add, size: 18, color: Colors.white),
-        label: Text(
-          buttonText,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          icon: Icon(Icons.add, size: 18, color: Colors.white),
+          label: Text(
+            buttonText,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
         ),
       ),
     );
@@ -285,58 +351,55 @@ class HomeScreenState extends State<HomeScreen> {
   /// **Displays List of Added Currencies or Placeholder Message**
   Widget currencyListView() {
     if (_isLoading) {
-      return Expanded(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Updating prices...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
               ),
-              SizedBox(height: 16),
-              Text(
-                'Updating prices...',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
     final filteredCurrencies = getFilteredCurrencies();
 
-    return Expanded(
-      child: filteredCurrencies.isEmpty
-          ? Center(
-              child: Text(
-                _searchQuery.isEmpty
-                    ? "${selectedCurrencyMode == 'Fiat' ? 'No currencies' : 'No cryptos'} added yet"
-                    : "No matches found",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-            )
-          : ListView.builder(
-              itemCount: filteredCurrencies.length,
-              itemBuilder: (context, index) {
-                final currency = filteredCurrencies[index];
-                
-                return GestureDetector(
-                  onTap: () => _openCurrencyDetail(currency),
-                  child: CurrencyCard(
-                    name: currency["name"],
-                    symbol: currency["symbol"],
-                    price: currency["price"],
-                    iconUrl: currency["iconUrl"],
-                    chartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
-                  ),
-                );
-              },
+    return filteredCurrencies.isEmpty
+        ? Center(
+            child: Text(
+              _searchQuery.isEmpty
+                  ? "${selectedCurrencyMode == 'Fiat' ? 'No currencies' : 'No cryptos'} added yet"
+                  : "No matches found",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
-    );
+          )
+        : ListView.builder(
+            physics: AlwaysScrollableScrollPhysics(),
+            itemCount: filteredCurrencies.length,
+            padding: EdgeInsets.zero,
+            itemBuilder: (context, index) {
+              final currency = filteredCurrencies[index];
+              return GestureDetector(
+                onTap: () => _openCurrencyDetail(currency),
+                child: CurrencyCard(
+                  name: currency["name"],
+                  symbol: currency["symbol"],
+                  price: currency["price"],
+                  iconUrl: currency["iconUrl"],
+                  chartData: (currency["chartData"] as List?)?.cast<double>() ?? [],
+                ),
+              );
+            },
+          );
   }
 
   /// **Search Bar**

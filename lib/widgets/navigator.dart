@@ -60,8 +60,8 @@ class BottomNavigationBarWidget extends StatelessWidget {
           label: 'Convert',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.settings_outlined),
-          label: 'Settings',
+          icon: Icon(Icons.sync),
+          label: 'Currency',
         ),
       ],
     );

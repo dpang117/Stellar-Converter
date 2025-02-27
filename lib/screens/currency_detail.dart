@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/currency_service.dart';
 import 'dart:math';
 import '../widgets/crypto_icon.dart';
+import '../widgets/currency_icon.dart';
 
 class CurrencyDetailScreen extends StatefulWidget {
   final String symbol;
@@ -27,7 +28,7 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
   late String currentPrice;
   bool isLoading = false;
   late String defaultCurrency;
-  
+
   // Add this to track the latest requested timeframe
   String? _pendingTimeframe;
 
@@ -51,19 +52,17 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
 
   Future<void> _loadChartData(String timeframe) async {
     if (!mounted) return;
-    
+
     // Store the requested timeframe
     _pendingTimeframe = timeframe;
-    
+
     setState(() {
       isLoading = true;
     });
 
     try {
-      final newData = await CurrencyService().getHistoricalPrices(
-        widget.symbol,
-        timeframe
-      );
+      final newData =
+          await CurrencyService().getHistoricalPrices(widget.symbol, timeframe);
 
       if (!mounted) return;
 
@@ -108,7 +107,8 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete ${widget.name}?'),
-        content: Text('Are you sure you want to remove this currency from your watchlist?'),
+        content: Text(
+            'Are you sure you want to remove this currency from your watchlist?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -149,16 +149,57 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
       );
     }
 
+    // Add this check
+    if (chartData.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+        height: 280,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            'No chart data available',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
     // Calculate price points for labels based on chart data
     final max = chartData.reduce((a, b) => a > b ? a : b);
     final min = chartData.reduce((a, b) => a < b ? a : b);
     final range = max - min;
-    
+
+    // Format price points based on currency type and value range
+    String formatPricePoint(double value) {
+      final isFiat = !CurrencyService.cryptoCurrencies.contains(widget.symbol);
+      if (isFiat) {
+        // For fiat currencies, show more decimal places for small ranges
+        if (range < 0.01) {
+          return value.toStringAsFixed(6);
+        } else if (range < 0.1) {
+          return value.toStringAsFixed(4);
+        } else if (range < 1) {
+          return value.toStringAsFixed(3);
+        } else {
+          return value.toStringAsFixed(2);
+        }
+      } else {
+        // For crypto, keep existing formatting
+        return value.toStringAsFixed(value >= 100
+            ? 2
+            : value >= 1
+                ? 3
+                : 4);
+      }
+    }
+
     // Calculate 4 evenly spaced price points
     final pricePoints = List.generate(4, (i) {
       final value = max - (range * i / 3);
-      // Format the price with appropriate decimal places
-      return value.toStringAsFixed(value >= 100 ? 2 : value >= 1 ? 3 : 4);
+      return formatPricePoint(value);
     });
 
     return Container(
@@ -173,18 +214,20 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
         children: [
           // Price labels column
           Container(
-            width: 60,
+            width: 80, // Increased width to accommodate longer numbers
             padding: EdgeInsets.only(right: 8),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: pricePoints.map((price) => Text(
-                price,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              )).toList(),
+              children: pricePoints
+                  .map((price) => Text(
+                        price,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ))
+                  .toList(),
             ),
           ),
           // Chart area
@@ -239,9 +282,9 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
               ),
             ),
             Spacer(),
-            CryptoIcon(
+            CurrencyIcon(
               symbol: widget.symbol,
-              size: 40,
+              size: 60,  // Larger size for detail view
             ),
             SizedBox(width: 16),
           ],
@@ -257,7 +300,7 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
             padding: const EdgeInsets.all(16),
             child: ElevatedButton.icon(
               onPressed: _handleDelete,
-              icon: Icon(Icons.remove),
+              icon: Icon(Icons.remove, color: Colors.white),
               label: Text('Delete'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -305,7 +348,8 @@ class _CurrencyDetailScreenState extends State<CurrencyDetailScreen> {
                       _getTimeframeLabel(timeframe),
                       style: TextStyle(
                         color: isSelected ? Colors.black : Colors.grey[600],
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -331,8 +375,8 @@ class DetailChartPainter extends CustomPainter {
   final bool showGrid;
 
   DetailChartPainter({
-    required this.data, 
-    required this.lineColor, 
+    required this.data,
+    required this.lineColor,
     required this.showGrid,
   });
 
@@ -379,15 +423,15 @@ class DetailChartPainter extends CustomPainter {
     for (int i = 1; i < data.length; i++) {
       final x = xStep * i;
       final y = size.height * (1 - (data[i] - min) / range);
-      
+
       if (i < data.length - 1) {
         final nextX = xStep * (i + 1);
         final nextY = size.height * (1 - (data[i + 1] - min) / range);
-        
+
         // Use less aggressive smoothing
         final controlX = x + (nextX - x) * 0.25;
         final controlY = y;
-        
+
         path.quadraticBezierTo(controlX, controlY, nextX, nextY);
       } else {
         path.lineTo(x, y);
@@ -417,7 +461,7 @@ class DetailChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(DetailChartPainter oldDelegate) =>
-      data != oldDelegate.data || 
-      lineColor != oldDelegate.lineColor || 
+      data != oldDelegate.data ||
+      lineColor != oldDelegate.lineColor ||
       showGrid != oldDelegate.showGrid;
-} 
+}

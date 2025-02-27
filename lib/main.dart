@@ -9,6 +9,9 @@ import 'screens/home.dart';
 import 'screens/stellarpay_invite.dart';
 import 'screens/startup.dart';
 import 'services/currency_service.dart';
+import 'services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/walkthrough_screen.dart';
 
 void main() async {
   // Ensure Flutter is fully initialized before applying UI changes
@@ -17,17 +20,36 @@ void main() async {
   // Pre-load the default currency
   await CurrencyService.getDefaultCurrency();
 
-  // Set status bar icons to black (for light backgrounds)
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent, // Fully transparent status bar
-    statusBarIconBrightness: Brightness.light, // Dark icons on light background
-    statusBarBrightness: Brightness.dark, // iOS
-  ));
+  final prefs = await SharedPreferences.getInstance();
+  // For testing: Clear the walkthrough flag
+  await prefs.remove('has_seen_walkthrough');
 
-  runApp(MyApp());
+  final hasSeenWalkthrough = prefs.getBool('has_seen_walkthrough') ?? false;
+  final isLoggedIn = await AuthService.isLoggedIn();
+
+  // Add debug print statements
+  print('Has seen walkthrough: $hasSeenWalkthrough');
+  print('Is logged in: $isLoggedIn');
+
+  Widget initialScreen;
+  if (isLoggedIn) {
+    initialScreen = HomeScreen();
+  } else if (hasSeenWalkthrough) {
+    initialScreen = LoginScreen();
+  } else {
+    initialScreen = WalkthroughScreen();
+  }
+
+  print('Initial screen: ${initialScreen.runtimeType}');
+
+  runApp(MyApp(initialScreen: initialScreen));
 }
 
 class MyApp extends StatelessWidget {
+  final Widget initialScreen;
+
+  const MyApp({Key? key, required this.initialScreen}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -61,7 +83,7 @@ class MyApp extends StatelessWidget {
               fontSize: 12, fontWeight: FontWeight.w500), // Button text
         ),
       ),
-      home: StartupScreen(),
+      home: initialScreen, // Use the Widget directly instead of a route string
     );
   }
 }

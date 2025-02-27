@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/currency_service.dart';
 import '../screens/currency_detail.dart';
+import '../widgets/currency_icon.dart';
 
 class CurrencyCard extends StatelessWidget {
   final String name;
   final String symbol;
-  final String price;
+  final dynamic price;
   final String iconUrl;
   final List<double> chartData;
   final VoidCallback? onRemove;
@@ -85,53 +86,30 @@ class CurrencyCard extends StatelessWidget {
     this.onRemove,
   }) : super(key: key);
 
-  Widget _buildIcon() {
-    final isCrypto = CurrencyService.cryptoCurrencies.contains(symbol);
+  String _formatPrice() {
+    if (price == null) return "N/A";
     
-    if (isCrypto) {
-      return Container(
-        width: 40,
-        height: 40,
-        child: SvgPicture.asset(
-          'assets/crypto_icons/${symbol.toLowerCase()}.svg',
-          placeholderBuilder: (context) => Center(
-            child: Text(
-              symbol[0],
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          errorBuilder: (context, error, stackTrace) => Center(
-            child: Text(
-              symbol[0],
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white24,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Text(
-            fiatFlags[symbol] ?? symbol[0],
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
-      );
+    double numericPrice;
+    try {
+      numericPrice = price is double ? price : double.parse(price.toString());
+    } catch (e) {
+      return price.toString();
     }
+
+    // Format based on size of number
+    if (numericPrice >= 1000000) {
+      return numericPrice.toStringAsFixed(0);  // No decimals for very large numbers
+    } else if (numericPrice >= 1) {
+      return numericPrice.toStringAsFixed(2);  // 2 decimals for normal numbers
+    } else if (numericPrice >= 0.0001) {
+      return numericPrice.toStringAsFixed(6);  // 6 decimals for small numbers
+    } else {
+      return numericPrice.toStringAsExponential(2); // Scientific notation for very small numbers
+    }
+  }
+
+  Widget _buildIcon() {
+    return CurrencyIcon(symbol: symbol);
   }
 
   @override
@@ -147,14 +125,11 @@ class CurrencyCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Currency Icon
           Container(
             margin: EdgeInsets.only(right: 12),
             child: _buildIcon(),
           ),
-
-          // Currency Details and Mini Chart
-          Expanded(
+          Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -181,12 +156,9 @@ class CurrencyCard extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(width: 16),
-
-          // Price
           Text(
-            price,
+            _formatPrice(),
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,

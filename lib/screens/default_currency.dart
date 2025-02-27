@@ -133,7 +133,17 @@ class _DefaultCurrencyState extends State<DefaultCurrency> {
 
               // **Confirm Button (Returns to HomeScreen)**
               ElevatedButton(
-                onPressed: () => _updateDefaultCurrency(selectedCurrency),
+                onPressed: () async {
+                  if (selectedCurrency.isNotEmpty) {
+                    await CurrencyService.setDefaultCurrency(selectedCurrency);
+                    // Navigate to HomeScreen and clear the stack
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => HomeScreen()),
+                      (route) => false,  // This removes all previous routes
+                    );
+                  }
+                },
                 child: const Text("Confirm"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 0, 0, 0),

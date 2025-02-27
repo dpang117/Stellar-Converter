@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/currency_service.dart';
+import '../widgets/currency_icon.dart';
 
 class CurrencyListScreen extends StatefulWidget {
   final String? mode;
@@ -139,51 +140,6 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
     });
   }
 
-  Widget _buildCurrencyIcon(String currency) {
-    // Use SVG for supported crypto icons
-    if (CurrencyService.cryptoCurrencies.contains(currency)) {
-      return SvgPicture.asset(
-        'assets/crypto_icons/${currency.toLowerCase()}.svg',
-        width: 32,
-        height: 32,
-        placeholderBuilder: (context) => _buildFallbackIcon(currency),
-      );
-    }
-    
-    // Use flag emoji for fiat or first letter for others
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Text(
-          fiatFlags[currency] ?? currency[0],
-          style: TextStyle(fontSize: 16),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFallbackIcon(String currency) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Text(
-          currency[0],
-          style: TextStyle(fontSize: 16),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -245,7 +201,7 @@ class _CurrencyListScreenState extends State<CurrencyListScreen> {
                   itemBuilder: (context, index) {
                     final currency = filteredCurrencies[index];
                     return ListTile(
-                      leading: _buildCurrencyIcon(currency),
+                      leading: CurrencyIcon(symbol: currency),
                       title: Text(currency),
                       onTap: () => Navigator.pop(context, currency),
                     );
