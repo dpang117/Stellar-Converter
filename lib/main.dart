@@ -1,54 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:stellar_converter/screens/converter.dart';
-import 'package:stellar_converter/screens/default_currency.dart';
-import 'screens/login_screen.dart';
-import '../screens/currency_list.dart';
-import 'widgets/navigator.dart';
-import 'screens/home.dart';
-import 'screens/stellarpay_invite.dart';
 import 'screens/startup.dart';
+import 'screens/home.dart';
+import 'screens/walkthrough_screen.dart';
 import 'services/currency_service.dart';
 import 'services/auth_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/walkthrough_screen.dart';
 
 void main() async {
-  // Ensure Flutter is fully initialized before applying UI changes
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Ensure system overlays are visible
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: [SystemUiOverlay.top, SystemUiOverlay.bottom],
+  );
 
-  // Pre-load the default currency
   await CurrencyService.getDefaultCurrency();
-
-  final prefs = await SharedPreferences.getInstance();
-  // For testing: Clear the walkthrough flag
-  await prefs.remove('has_seen_walkthrough');
-
-  final hasSeenWalkthrough = prefs.getBool('has_seen_walkthrough') ?? false;
   final isLoggedIn = await AuthService.isLoggedIn();
-
-  // Add debug print statements
-  print('Has seen walkthrough: $hasSeenWalkthrough');
-  print('Is logged in: $isLoggedIn');
-
-  Widget initialScreen;
-  if (isLoggedIn) {
-    initialScreen = HomeScreen();
-  } else if (hasSeenWalkthrough) {
-    initialScreen = LoginScreen();
-  } else {
-    initialScreen = WalkthroughScreen();
-  }
-
-  print('Initial screen: ${initialScreen.runtimeType}');
-
-  runApp(MyApp(initialScreen: initialScreen));
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  final Widget initialScreen;
+  final bool isLoggedIn;
 
-  const MyApp({Key? key, required this.initialScreen}) : super(key: key);
+  const MyApp({Key? key, required this.isLoggedIn}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -58,12 +33,10 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: AppBarTheme(
-          backgroundColor: Colors.white, // Makes AppBar white
-          elevation: 0, // Removes shadow for a cleaner look
-          iconTheme:
-              IconThemeData(color: Colors.black), // Ensures icons are visible
-          titleTextStyle:
-              TextStyle(color: Colors.black, fontSize: 20), // AppBar text
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(color: Colors.black, fontSize: 20),
         ),
         fontFamily: Theme.of(context).platform == TargetPlatform.iOS
             ? '.SF Pro Display' // iOS/macOS System Font
@@ -83,7 +56,7 @@ class MyApp extends StatelessWidget {
               fontSize: 12, fontWeight: FontWeight.w500), // Button text
         ),
       ),
-      home: initialScreen, // Use the Widget directly instead of a route string
+      home: StartupScreen(isLoggedIn: isLoggedIn),
     );
   }
 }

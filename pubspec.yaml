@@ -1,9 +1,8 @@
 name: stellar_converter
 description: "A new Flutter project."
 
-publish_to: "none" # Remove this line if you wish to publish to pub.dev
-
-version: 1.0.0+1
+publish_to: "none"
+version: 1.0.1+2
 
 environment:
   sdk: ^3.6.1
@@ -79,3 +78,4 @@ flutter:
     - assets/walkthrough/walkthrough_4.svg
     - assets/walkthrough/walkthrough_5.svg
     - assets/walkthrough/walkthrough_6.svg
+    - assets/images/splash_logo.png
